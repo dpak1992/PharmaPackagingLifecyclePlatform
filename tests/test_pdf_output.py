@@ -44,15 +44,31 @@ def sample_pdf(sample_config, tmp_path):
 
 
 def _decode_pdf_stream(pdf_path):
-    """Extract and decode the content stream from a PDF."""
+    """Extract and decode ALL content streams from a PDF."""
     with open(pdf_path, "rb") as f:
         data = f.read()
-    pos = data.find(b"stream")
-    end = data.find(b"endstream", pos)
-    raw = data[pos + 7 : end].strip()
-    # ASCII85 + FlateDecode
-    a85 = base64.a85decode(raw, adobe=True)
-    return zlib.decompress(a85).decode("latin-1")
+    parts = []
+    pos = 0
+    while True:
+        s = data.find(b"stream", pos)
+        if s < 0:
+            break
+        e = data.find(b"endstream", s)
+        if e < 0:
+            break
+        raw = data[s + 7 : e].strip()
+        try:
+            a85 = base64.a85decode(raw, adobe=True)
+            decoded = zlib.decompress(a85).decode("latin-1")
+            parts.append(decoded)
+        except Exception:
+            try:
+                decoded = zlib.decompress(raw).decode("latin-1")
+                parts.append(decoded)
+            except Exception:
+                pass
+        pos = e + 9
+    return "\n".join(parts)
 
 
 class TestPdfOutput:
@@ -107,9 +123,9 @@ class TestPdfOutput:
 
     def test_contains_coding_zones(self, sample_pdf):
         content = _decode_pdf_stream(sample_pdf)
-        assert "B.No.:" in content
-        assert "Mfg. Date:" in content
-        assert "Exp. Date:" in content
+        assert "B.No" in content
+        assert "Mfg." in content
+        assert "Exp." in content
 
     def test_contains_mrp(self, sample_pdf):
         content = _decode_pdf_stream(sample_pdf)

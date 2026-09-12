@@ -154,6 +154,23 @@ def _clip_to_panel(c: Canvas, panel: Panel, bx: float, by: float) -> None:
     c.clipPath(p, stroke=0, fill=0)
 
 
+def _register_unicode_fonts() -> None:
+    """Register Unicode fonts for Hindi/Devanagari text rendering."""
+    import os
+    deva_paths = [
+        "/System/Library/Fonts/Supplemental/Devanagari Sangam MN.ttc",
+        "/System/Library/Fonts/Supplemental/DevanagariMT.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+    ]
+    for path in deva_paths:
+        if os.path.exists(path):
+            try:
+                pdfmetrics.registerFont(TTFont("Devanagari", path, subfontIndex=0))
+                return
+            except Exception:
+                continue
+
+
 def compose_artwork_pdf(
     config: PackagingConfig,
     dieline: DielineSpec,
@@ -180,6 +197,7 @@ def compose_artwork_pdf(
         Path to the generated PDF file.
     """
     output_path = Path(output_path)
+    _register_unicode_fonts()
 
     # Page size = dieline total + bleed on all sides
     page_w = (dieline.total_width + 2 * BLEED) * mm
@@ -422,8 +440,12 @@ def _draw_text_layer(
         else:
             c.setFillColor(black)
 
-        # Set font
-        font_name = "Helvetica-Bold" if te.font_bold else "Helvetica"
+        # Set font — use Devanagari for Hindi text elements
+        is_hindi = "hindi" in te.id.lower()
+        if is_hindi and "Devanagari" in pdfmetrics.getRegisteredFontNames():
+            font_name = "Devanagari"
+        else:
+            font_name = "Helvetica-Bold" if te.font_bold else "Helvetica"
         c.setFont(font_name, te.font_size)
 
         # Calculate absolute position
