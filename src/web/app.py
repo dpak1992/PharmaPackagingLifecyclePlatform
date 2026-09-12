@@ -390,6 +390,7 @@ def _build_packaging_config(org: Organization, product: DBProduct, proj: Packagi
     config = PackagingConfig(
         product=p, blister=blister, carton=carton,
         pack_size=proj.pack_size, mrp=mrp_str,
+        brand_color_hex=org.brand_color_hex,
     )
     config.carton.calculate_from_blister(blister)
     return config

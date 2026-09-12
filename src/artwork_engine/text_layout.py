@@ -53,12 +53,30 @@ def _pct(panel_dim: float, pct: float) -> float:
     return panel_dim * pct / 100.0
 
 
+def _hex_to_cmyk(hex_color: str) -> tuple:
+    """Convert hex color to approximate CMYK percentages."""
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return (100.0, 58.0, 0.0, 7.0)  # fallback blue
+    r, g, b = int(h[0:2], 16) / 255, int(h[2:4], 16) / 255, int(h[4:6], 16) / 255
+    k = 1 - max(r, g, b)
+    if k >= 1:
+        return (0.0, 0.0, 0.0, 100.0)
+    c = (1 - r - k) / (1 - k) * 100
+    m = (1 - g - k) / (1 - k) * 100
+    y = (1 - b - k) / (1 - k) * 100
+    return (round(c, 1), round(m, 1), round(y, 1), round(k * 100, 1))
+
+
 def generate_default_artwork(config: PackagingConfig) -> ArtworkSpec:
     """Generate artwork spec matching real Indian pharma carton conventions."""
     product = config.product
+
+    # Convert org's brand color hex to CMYK for PDF
+    c, m, y, k = _hex_to_cmyk(config.brand_color_hex)
     brand_color = SpotColor(
-        name="Brand Blue",
-        cyan=100.0, magenta=58.0, yellow=0.0, black=7.0,
+        name="Brand Color",
+        cyan=c, magenta=m, yellow=y, black=k,
     )
 
     dosage_label = _DOSAGE_FORM_LABELS.get(product.dosage_form, "Tablets IP")

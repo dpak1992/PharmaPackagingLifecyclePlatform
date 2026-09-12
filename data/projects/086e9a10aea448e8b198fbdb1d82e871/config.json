@@ -1,0 +1,48 @@
+{
+  "product": {
+    "id": "VENTIMOX-250",
+    "brand_name": "Ventimox",
+    "brand_name_hindi": "None",
+    "generic_name": "Amoxycillin Trihydrate",
+    "strength": {
+      "value": 250.0,
+      "unit": "mg"
+    },
+    "dosage_form": "tablet",
+    "composition": "sad",
+    "manufacturer": {
+      "name": "XYZ Pharmaceuticals Ltd",
+      "address": "Plot No: 10, HSSIDC IT Park, Panchkula, 134109",
+      "license_no": "MLF282024JK000013"
+    },
+    "marketer": null,
+    "schedule_warning": "",
+    "storage_conditions": "Store below 25°C. Protect from light and moisture."
+  },
+  "blister": {
+    "configuration": "1x10",
+    "length": 189.0,
+    "width": 53.0,
+    "height": 8.4,
+    "material_base": "PVC 250μm",
+    "material_lidding": "Aluminium 20μm"
+  },
+  "carton": {
+    "construction": "ECMA_A20_20",
+    "board": {
+      "grade": "GC1",
+      "caliper": 0.4,
+      "weight_gsm": 300
+    },
+    "clearance": 2.0,
+    "leaflet_allowance": 5.0,
+    "blisters_per_carton": 3,
+    "internal_length": 193.0,
+    "internal_width": 57.0,
+    "internal_depth": 32.2
+  },
+  "dieline": null,
+  "artwork": null,
+  "pack_size": "10x3x10",
+  "mrp": null
+}

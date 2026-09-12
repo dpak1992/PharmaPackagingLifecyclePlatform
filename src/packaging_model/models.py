@@ -181,3 +181,4 @@ class PackagingConfig(BaseModel):
     artwork: Optional[ArtworkSpec] = None
     pack_size: str = "1 x 10"
     mrp: Optional[str] = None  # e.g. "₹125.50"
+    brand_color_hex: str = "#1a56db"  # organization's brand color
