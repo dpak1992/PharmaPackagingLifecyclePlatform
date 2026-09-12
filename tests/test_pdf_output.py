@@ -123,6 +123,48 @@ class TestPdfOutput:
         # CMYK fill: c m y k k operator
         assert " k" in content, "No CMYK fill colors found"
 
+    def test_contains_ocg_layer_definitions(self, sample_pdf):
+        """PDF must contain OCG (Optional Content Group) definitions."""
+        with open(sample_pdf, "rb") as f:
+            data = f.read()
+        assert b"/OCG" in data or b"/OCGs" in data, "No OCG definitions found in PDF"
+
+    def test_contains_ocg_layer_names(self, sample_pdf):
+        """Each expected layer name must appear as an OCG entry in the PDF."""
+        with open(sample_pdf, "rb") as f:
+            data = f.read()
+        for layer_name in ["Dieline", "Artwork", "Text", "Barcode", "Coding"]:
+            assert layer_name.encode() in data, f"Layer name '{layer_name}' not found in PDF"
+
+    def test_contains_ocg_bdc_markers(self, sample_pdf):
+        """Content stream must have BDC/EMC markers for OCG layers."""
+        content = _decode_pdf_stream(sample_pdf)
+        assert "BDC" in content, "No BDC (begin marked content) operators found"
+        assert "EMC" in content, "No EMC (end marked content) operators found"
+        # Verify at least one OCG resource name is referenced
+        assert "OC_" in content, "No OC_ resource references found in content stream"
+
+    def test_contains_ocproperties_in_catalog(self, sample_pdf):
+        """PDF catalog must contain an OCProperties entry."""
+        with open(sample_pdf, "rb") as f:
+            data = f.read()
+        assert b"OCProperties" in data, "No OCProperties in PDF catalog"
+
+    def test_text_clipping_operators_present(self, sample_pdf):
+        """Text layer must use clipping paths (W operator) for panel bounds."""
+        content = _decode_pdf_stream(sample_pdf)
+        # ReportLab's clipPath emits: <path> W n
+        # The W operator sets the clipping path
+        assert " W " in content or " W*" in content or "\nW " in content or " W\n" in content, \
+            "No clipping (W/W* operator) found — text should be clipped to panels"
+
+    def test_all_five_ocg_layers_have_bdc(self, sample_pdf):
+        """Each of the five layer resource names must appear as BDC targets."""
+        content = _decode_pdf_stream(sample_pdf)
+        for layer_name in ["Artwork", "Text", "Barcode", "Coding", "Dieline"]:
+            marker = f"/OC_{layer_name} BDC"
+            assert marker in content, f"Missing BDC marker for layer: {layer_name}"
+
 
 class TestEan13:
     def test_generates_bars(self):

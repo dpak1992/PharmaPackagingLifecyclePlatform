@@ -1,10 +1,11 @@
 """PDF artwork compositor for pharmaceutical packaging.
 
 Generates prepress-aware PDFs with:
-  - OCG layers (Optional Content Groups) for Dieline, Artwork, Text, Barcode
+  - OCG layers (Optional Content Groups) for Dieline, Artwork, Text, Barcode, Coding
   - Separation color spaces for spot colors
   - Editable text objects (not outlines)
   - Vector barcode rendering
+  - Text clipping to panel boundaries
   - Bleed and trim box definitions
   - Standard PDF structure that opens in Adobe Illustrator with editable layers
 
@@ -13,7 +14,7 @@ Uses ReportLab for PDF generation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from reportlab.lib.units import mm
 from reportlab.lib.colors import CMYKColor, Color, black, white
@@ -21,6 +22,7 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.pagesizes import landscape
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfdoc
 
 from packaging_model.models import (
     PackagingConfig,
@@ -40,6 +42,15 @@ from artwork_engine.barcode_gen import generate_ean13_bars
 # Bleed amount
 BLEED = 3.0  # mm
 
+# OCG layer names in drawing order
+OCG_LAYER_NAMES: List[str] = [
+    LayerName.ARTWORK.value,
+    LayerName.TEXT.value,
+    LayerName.BARCODE.value,
+    LayerName.CODING.value,
+    LayerName.DIELINE.value,
+]
+
 
 def _cmyk_color(c: float, m: float, y: float, k: float, alpha: float = 1.0) -> CMYKColor:
     """Create a CMYK color from percentages (0-100)."""
@@ -57,6 +68,88 @@ def _get_panel_by_type(dieline: DielineSpec, ptype: PanelType) -> Optional[Panel
         if p.panel_type == ptype:
             return p
     return None
+
+
+def _begin_ocg_layer(c: Canvas, layer_name: str) -> None:
+    """Insert a marked content begin (BDC) for an OCG layer into the content stream.
+
+    The resource name is ``/OC_<layer_name>`` (e.g., ``/OC_Artwork``).
+    The corresponding ``Properties`` entry must be added to the page
+    resources before the page is finalised — see ``_install_ocg_layers``.
+    """
+    resource_name = f"OC_{layer_name}"
+    c._code.append(f"/{resource_name} BDC")
+
+
+def _end_ocg_layer(c: Canvas) -> None:
+    """Insert a marked content end (EMC) for the current OCG layer."""
+    c._code.append("EMC")
+
+
+def _install_ocg_layers(c: Canvas) -> Dict[str, object]:
+    """Create OCG dictionary objects and wire them into the PDF catalog.
+
+    Must be called *after* all drawing and *before* ``c.save()`` so that
+    when ``showPage()`` builds the page dictionary we can inject the
+    ``Properties`` entries that the BDC operators reference.
+
+    Returns a mapping ``{resource_name: ocg_dict}`` for page-resource
+    installation.
+    """
+    doc = c._doc
+    ocg_refs = []
+    properties: Dict[str, object] = {}
+
+    for layer_name in OCG_LAYER_NAMES:
+        ocg_dict = pdfdoc.PDFDictionary({
+            "Type": pdfdoc.PDFName("OCG"),
+            "Name": pdfdoc.PDFString(layer_name),
+        })
+        # Register as a named indirect object so it gets a proper ref
+        ref_name = f"OCG_{layer_name}"
+        doc.Reference(ocg_dict, ref_name)
+        ref = pdfdoc.PDFObjectReference(ref_name)
+        ocg_refs.append(ref)
+        resource_name = f"OC_{layer_name}"
+        properties[resource_name] = ref
+
+    # Build the OCProperties dictionary for the catalog
+    ocg_array = pdfdoc.PDFArray(ocg_refs)
+
+    # Default viewing config — all layers ON by default
+    default_config = pdfdoc.PDFDictionary({
+        "BaseState": pdfdoc.PDFName("ON"),
+        "Order": ocg_array,
+        "Name": pdfdoc.PDFString("Layers"),
+    })
+
+    oc_properties = pdfdoc.PDFDictionary({
+        "OCGs": ocg_array,
+        "D": default_config,
+    })
+
+    doc._catalog.OCProperties = oc_properties
+    # Add to __NoDefault__ and __Refs__ so the catalog formatter picks it up
+    if "OCProperties" not in doc._catalog.__NoDefault__:
+        doc._catalog.__NoDefault__ = list(doc._catalog.__NoDefault__) + ["OCProperties"]
+
+    return properties
+
+
+def _clip_to_panel(c: Canvas, panel: Panel, bx: float, by: float) -> None:
+    """Set a clipping path to constrain drawing within the panel boundaries.
+
+    Must be called inside a ``saveState()`` / ``restoreState()`` pair so
+    the clip is automatically removed afterwards.
+    """
+    p = c.beginPath()
+    p.rect(
+        bx + panel.x * mm,
+        by + panel.y * mm,
+        panel.width * mm,
+        panel.height * mm,
+    )
+    c.clipPath(p, stroke=0, fill=0)
 
 
 def compose_artwork_pdf(
@@ -126,22 +219,56 @@ def compose_artwork_pdf(
     by = BLEED * mm
 
     # === LAYER: ARTWORK (background colors) ===
-    # Draw panel background colors
+    _begin_ocg_layer(c, LayerName.ARTWORK.value)
     _draw_artwork_layer(c, dieline, spot_colors, bx, by)
+    _end_ocg_layer(c)
 
     # === LAYER: TEXT ===
+    _begin_ocg_layer(c, LayerName.TEXT.value)
     _draw_text_layer(c, dieline, artwork, spot_colors, bx, by)
+    _end_ocg_layer(c)
 
     # === LAYER: BARCODE ===
+    _begin_ocg_layer(c, LayerName.BARCODE.value)
     _draw_barcode_layer(c, dieline, artwork, bx, by)
+    _end_ocg_layer(c)
 
     # === LAYER: CODING (coding zones) ===
+    _begin_ocg_layer(c, LayerName.CODING.value)
     _draw_coding_layer(c, dieline, artwork, bx, by)
+    _end_ocg_layer(c)
 
     # === LAYER: DIELINE (non-printing, on top) ===
+    _begin_ocg_layer(c, LayerName.DIELINE.value)
     _draw_dieline_layer(c, dieline, bx, by)
+    _end_ocg_layer(c)
 
-    c.save()
+    # Install OCG layer objects into the PDF catalog and prepare
+    # page-resource properties for the BDC operators we emitted.
+    ocg_properties = _install_ocg_layers(c)
+
+    # Manually trigger page creation so we can patch its resources
+    # before the document is serialised.
+    c.showPage()
+
+    # The page was just added — patch it so that when check_format
+    # runs (during doc.format()), the Properties dict includes our
+    # OCG references.  check_format creates Resources only if
+    # page.Resources is None, so we wrap it to inject Properties
+    # after the default resource setup.
+    page = c._doc.Pages.pages[-1]
+    _original_check_format = page.check_format
+
+    def _patched_check_format(document, _orig=_original_check_format, _props=ocg_properties):
+        _orig(document)
+        # After default resource creation, inject OCG properties
+        if page.Resources is not None:
+            page.Resources.Properties.update(_props)
+
+    page.check_format = _patched_check_format
+
+    # Save directly (showPage already consumed the content)
+    c._doc.SaveToFile(c._filename, c)
     return output_path
 
 
@@ -208,6 +335,9 @@ def _draw_text_layer(
             continue
 
         c.saveState()
+
+        # Clip text to panel boundaries so long strings don't overflow
+        _clip_to_panel(c, panel, bx, by)
 
         # Set color
         if te.color_name and te.color_name in spot_colors:
@@ -303,6 +433,9 @@ def _draw_coding_layer(
         abs_y = by + (panel.y + cz.y) * mm
 
         c.saveState()
+
+        # Clip coding zone labels to panel boundaries
+        _clip_to_panel(c, panel, bx, by)
 
         # Dashed outline for coding zone
         c.setStrokeColor(_cmyk_color(0, 0, 0, 30))

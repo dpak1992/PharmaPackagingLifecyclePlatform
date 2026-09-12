@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharma Packaging Lifecycle Platform</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f7f8fa;
+            color: #1a1a2e;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 6px;
+        }
+        header p {
+            font-size: 0.95rem;
+            color: #6b7280;
+        }
+        .error-banner {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            color: #991b1b;
+            font-size: 0.9rem;
+        }
+        fieldset {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 20px;
+            background: #ffffff;
+        }
+        legend {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a56db;
+            padding: 0 8px;
+        }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 180px;
+        }
+        .form-group.full { flex-basis: 100%; }
+        .form-group label {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            color: #111827;
+            background: #fff;
+            transition: border-color 0.15s;
+            width: 100%;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #1a56db;
+            box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+        }
+        textarea { resize: vertical; min-height: 60px; }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 22px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 16px; height: 16px; accent-color: #1a56db;
+        }
+        .checkbox-group label { margin-bottom: 0; font-size: 0.85rem; }
+        .submit-row {
+            text-align: center;
+            margin-top: 28px;
+        }
+        button[type="submit"] {
+            background: #1a56db;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 40px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        button[type="submit"]:hover { background: #1644b5; }
+        .hint { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pharma Packaging Lifecycle Platform</h1>
+            <p>Generate pharmaceutical carton dielines and artwork from product specifications</p>
+        </header>
+
+        {% if error %}
+        <div class="error-banner">{{ error }}</div>
+        {% endif %}
+
+        <form action="/generate" method="post">
+
+            <!-- Product Information -->
+            <fieldset>
+                <legend>Product Information</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="brand_name">Brand Name</label>
+                        <input type="text" id="brand_name" name="brand_name" value="AZICURE" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="generic_name">Generic Name</label>
+                        <input type="text" id="generic_name" name="generic_name" value="Azithromycin" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="strength">Strength</label>
+                        <input type="number" id="strength" name="strength" value="500" step="any" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="strength_unit">Unit</label>
+                        <select id="strength_unit" name="strength_unit">
+                            <option value="mg" selected>mg</option>
+                            <option value="mcg">mcg</option>
+                            <option value="ml">ml</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dosage_form">Dosage Form</label>
+                        <select id="dosage_form" name="dosage_form">
+                            {% for form in dosage_forms %}
+                            <option value="{{ form.value }}" {% if form.value == "tablet" %}selected{% endif %}>{{ form.value | replace('_', ' ') | title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full">
+                        <label for="composition">Composition</label>
+                        <textarea id="composition" name="composition" required>Each tablet contains: Azithromycin IP 500 mg</textarea>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="schedule_h" name="schedule_h" checked>
+                        <label for="schedule_h">Schedule H Warning</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Manufacturer -->
+            <fieldset>
+                <legend>Manufacturer</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="mfg_name">Name</label>
+                        <input type="text" id="mfg_name" name="mfg_name" value="PharmaCure Laboratories Pvt. Ltd." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="license_no">License No.</label>
+                        <input type="text" id="license_no" name="license_no" value="MH/15/2024/000123" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full">
+                        <label for="mfg_address">Address</label>
+                        <textarea id="mfg_address" name="mfg_address" required>Plot No. 45, MIDC, Mahad, Maharashtra</textarea>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Packaging -->
+            <fieldset>
+                <legend>Packaging</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pack_size">Pack Size</label>
+                        <input type="text" id="pack_size" name="pack_size" value="1 x 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="mrp">MRP</label>
+                        <input type="text" id="mrp" name="mrp" value="125.50">
+                        <span class="hint">Rs. will be prefixed automatically</span>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Blister Dimensions -->
+            <fieldset>
+                <legend>Blister Dimensions (mm)</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="blister_length">Length</label>
+                        <input type="number" id="blister_length" name="blister_length" value="120" step="any" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="blister_width">Width</label>
+                        <input type="number" id="blister_width" name="blister_width" value="50" step="any" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="blister_height">Height</label>
+                        <input type="number" id="blister_height" name="blister_height" value="8" step="any" required>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Carton Parameters -->
+            <fieldset>
+                <legend>Carton Parameters</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="board_caliper">Board Caliper (mm)</label>
+                        <input type="number" id="board_caliper" name="board_caliper" value="0.40" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="clearance">Clearance (mm)</label>
+                        <input type="number" id="clearance" name="clearance" value="2.0" step="0.5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="leaflet_allowance">Leaflet Allowance (mm)</label>
+                        <input type="number" id="leaflet_allowance" name="leaflet_allowance" value="5.0" step="0.5" required>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="submit-row">
+                <button type="submit">Generate Packaging</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generation Results - Pharma Packaging Lifecycle Platform</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f7f8fa;
+            color: #1a1a2e;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+        header p {
+            font-size: 0.95rem;
+            color: #16a34a;
+            font-weight: 500;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+        }
+        .card .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .card .value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+        .preview-section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .preview-section iframe {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            width: 100%;
+            height: 600px;
+        }
+        .downloads {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+        .dl-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .dl-btn:hover { transform: translateY(-1px); }
+        .dl-dxf { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .dl-dxf:hover { background: #dcfce7; }
+        .dl-pdf { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .dl-pdf:hover { background: #dbeafe; }
+        .dl-json { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+        .dl-json:hover { background: #fef9c3; }
+        .back-link {
+            display: inline-block;
+            color: #1a56db;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pharma Packaging Lifecycle Platform</h1>
+            <p>Packaging generated successfully</p>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="cards">
+            <div class="card">
+                <div class="label">Carton (L x W x D)</div>
+                <div class="value">{{ "%.1f"|format(carton_l) }} x {{ "%.1f"|format(carton_w) }} x {{ "%.1f"|format(carton_d) }} mm</div>
+            </div>
+            <div class="card">
+                <div class="label">Dieline Size</div>
+                <div class="value">{{ "%.1f"|format(dieline_w) }} x {{ "%.1f"|format(dieline_h) }} mm</div>
+            </div>
+            <div class="card">
+                <div class="label">Panels</div>
+                <div class="value">{{ panel_count }}</div>
+            </div>
+            <div class="card">
+                <div class="label">Text Elements</div>
+                <div class="value">{{ text_count }}</div>
+            </div>
+            <div class="card">
+                <div class="label">Barcodes</div>
+                <div class="value">{{ barcode_count }}</div>
+            </div>
+        </div>
+
+        <!-- Downloads -->
+        <div class="downloads">
+            <a href="/download/{{ job_id }}/dxf" class="dl-btn dl-dxf">Download DXF Dieline</a>
+            <a href="/download/{{ job_id }}/pdf" class="dl-btn dl-pdf">Download PDF Artwork</a>
+            <a href="/download/{{ job_id }}/json" class="dl-btn dl-json">Download JSON Config</a>
+        </div>
+
+        <!-- PDF Preview -->
+        <div class="preview-section">
+            <h2 class="section-title">Artwork Preview</h2>
+            <iframe src="/preview/{{ job_id }}"></iframe>
+        </div>
+
+        <a href="/" class="back-link">&larr; Generate Another</a>
+    </div>
+</body>
+</html>
