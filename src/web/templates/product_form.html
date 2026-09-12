@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{% if product %}Edit Product{% else %}New Product{% endif %} — {{ org.name }}{% endblock %}
+
+{% block nav_items %}
+<span class="org-name">{{ org.name }}</span>
+<a href="/org/{{ org.id }}">Dashboard</a>
+{% endblock %}
+
+{% block content %}
+<h1>{% if product %}Edit Product{% else %}Add New Product{% endif %}</h1>
+<p class="subtitle">Define the product that will appear on packaging artwork.</p>
+
+<form action="{% if product %}/org/{{ org.id }}/product/{{ product.id }}/edit{% else %}/org/{{ org.id }}/product/new{% endif %}" method="post">
+    <fieldset>
+        <legend>Product Identity</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="brand_name">Brand Name *</label>
+                <input type="text" id="brand_name" name="brand_name" value="{{ product.brand_name if product else '' }}" required placeholder="e.g. Ventimox">
+            </div>
+            <div class="form-group">
+                <label for="brand_name_hindi">Brand Name (Hindi)</label>
+                <input type="text" id="brand_name_hindi" name="brand_name_hindi" value="{{ product.brand_name_hindi if product else '' }}" placeholder="e.g. वेन्टीमॉक्स">
+                <span class="hint">Optional — for bilingual packaging</span>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="generic_name">Generic Name (INN) *</label>
+                <input type="text" id="generic_name" name="generic_name" value="{{ product.generic_name if product else '' }}" required placeholder="e.g. Amoxycillin Trihydrate">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="strength_value">Strength *</label>
+                <input type="number" id="strength_value" name="strength_value" value="{{ product.strength_value if product else '' }}" step="any" required placeholder="250">
+            </div>
+            <div class="form-group">
+                <label for="strength_unit">Unit</label>
+                <select id="strength_unit" name="strength_unit">
+                    {% for u in ['mg', 'mcg', 'ml', 'g', 'IU'] %}
+                    <option value="{{ u }}" {{ 'selected' if product and product.strength_unit == u else ('selected' if not product and u == 'mg' else '') }}>{{ u }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="dosage_form">Dosage Form *</label>
+                <select id="dosage_form" name="dosage_form">
+                    {% for form in dosage_forms %}
+                    <option value="{{ form.value }}" {{ 'selected' if product and product.dosage_form == form.value else '' }}>{{ form.value | replace('_', ' ') | title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Composition & Regulatory</legend>
+        <div class="form-row">
+            <div class="form-group full">
+                <label for="composition">Composition *</label>
+                <textarea id="composition" name="composition" required placeholder="Each hard gelatin capsule contains: Amoxycillin Trihydrate IP Eq. to Amoxycillin 250 mg. Excipients q.s.">{{ product.composition if product else '' }}</textarea>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="schedule_type">Schedule Classification</label>
+                <select id="schedule_type" name="schedule_type">
+                    <option value="" {{ 'selected' if not product or not product.schedule_type else '' }}>None (OTC)</option>
+                    <option value="H" {{ 'selected' if product and product.schedule_type == 'H' else '' }}>Schedule H</option>
+                    <option value="H1" {{ 'selected' if product and product.schedule_type == 'H1' else '' }}>Schedule H1</option>
+                    <option value="X" {{ 'selected' if product and product.schedule_type == 'X' else '' }}>Schedule X</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full">
+                <label for="storage_conditions">Storage Conditions</label>
+                <input type="text" id="storage_conditions" name="storage_conditions"
+                    value="{{ product.storage_conditions if product else 'Store below 25°C. Protect from light and moisture.' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <div style="display:flex; gap:12px; margin-top:24px;">
+        <button type="submit" class="btn btn-primary">{% if product %}Save Changes{% else %}Add Product{% endif %}</button>
+        <a href="/org/{{ org.id }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

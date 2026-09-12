@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Pharma Packaging Lifecycle Platform{% endblock %}
+
+{% block content %}
+<div style="text-align:center; margin-bottom:36px;">
+    <h1>Pharma Packaging Lifecycle Platform</h1>
+    <p class="subtitle">Generate pharmaceutical carton dielines, artwork, and packaging specifications</p>
+</div>
+
+{% if organizations|length > 0 %}
+<div class="section-header">
+    <h2>Your Organizations</h2>
+    <a href="/onboard" class="btn btn-primary">+ New Organization</a>
+</div>
+<div class="cards">
+    {% for org in organizations %}
+    <a href="/org/{{ org.id }}" style="text-decoration:none; color:inherit;">
+        <div class="card">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                {% if org.logo_path %}
+                <img src="/logo/{{ org.id }}" style="height:32px; width:auto; border-radius:4px;">
+                {% else %}
+                <div style="width:32px; height:32px; border-radius:4px; background:{{ org.brand_color_hex }}; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px;">{{ org.name[0] }}</div>
+                {% endif %}
+                <h3>{{ org.name }}</h3>
+            </div>
+            <p>{{ org.products|length }} product{{ 's' if org.products|length != 1 else '' }}</p>
+            <p class="meta">{{ org.license_no }}</p>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No organizations yet. Set up your company to start generating packaging.</p>
+    <a href="/onboard" class="btn btn-primary">Get Started</a>
+</div>
+{% endif %}
+{% endblock %}

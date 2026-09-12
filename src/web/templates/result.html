@@ -323,7 +323,11 @@
             <iframe src="/preview/{{ job_id }}"></iframe>
         </div>
 
+        {% if org is defined and org %}
+        <a href="/org/{{ org.id }}" class="back-link">&larr; Back to Dashboard</a>
+        {% else %}
         <a href="/" class="back-link">&larr; Generate Another</a>
+        {% endif %}
     </div>
 
     <script type="importmap">

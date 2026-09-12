@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{% if org %}Edit Organization{% else %}Set Up Your Organization{% endif %}{% endblock %}
+
+{% block content %}
+<h1>{% if org %}Edit Organization{% else %}Set Up Your Organization{% endif %}</h1>
+<p class="subtitle">Enter your company details. This information will appear on all packaging artwork.</p>
+
+<form action="{% if org %}/org/{{ org.id }}/edit{% else %}/onboard{% endif %}" method="post" enctype="multipart/form-data">
+    <fieldset>
+        <legend>Company Information</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name">Company Name *</label>
+                <input type="text" id="name" name="name" value="{{ org.name if org else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="license_no">Drug License No.</label>
+                <input type="text" id="license_no" name="license_no" value="{{ org.license_no if org else '' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full">
+                <label for="address">Address</label>
+                <textarea id="address" name="address">{{ org.address if org else '' }}</textarea>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="logo">Company Logo</label>
+                <input type="file" id="logo" name="logo" accept="image/*">
+                {% if org and org.logo_path %}
+                <span class="hint">Current logo uploaded. Upload new to replace.</span>
+                {% else %}
+                <span class="hint">PNG or JPG, used on packaging artwork</span>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label for="brand_color_hex">Brand Color</label>
+                <input type="color" id="brand_color_hex" name="brand_color_hex" value="{{ org.brand_color_hex if org else '#1a56db' }}" style="height:40px; padding:2px;">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Manufacturing Details</legend>
+        <div class="form-row">
+            <div class="checkbox-group">
+                <input type="checkbox" id="is_manufacturer" name="is_manufacturer"
+                    {{ 'checked' if (not org or org.is_manufacturer) else '' }}
+                    onchange="document.getElementById('contract-mfg').style.display = this.checked ? 'none' : 'block';">
+                <label for="is_manufacturer">We manufacture in-house</label>
+            </div>
+        </div>
+        <div id="contract-mfg" style="display: {{ 'none' if (not org or org.is_manufacturer) else 'block' }};">
+            <p class="hint" style="margin-bottom:12px;">If your products are contract-manufactured, enter the manufacturer's details below. Your company details above will appear as "Marketed by".</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="manufacturer_name">Manufacturer Name</label>
+                    <input type="text" id="manufacturer_name" name="manufacturer_name" value="{{ org.manufacturer_name if org else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="manufacturer_license_no">Manufacturer License No.</label>
+                    <input type="text" id="manufacturer_license_no" name="manufacturer_license_no" value="{{ org.manufacturer_license_no if org else '' }}">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full">
+                    <label for="manufacturer_address">Manufacturer Address</label>
+                    <textarea id="manufacturer_address" name="manufacturer_address">{{ org.manufacturer_address if org else '' }}</textarea>
+                </div>
+            </div>
+        </div>
+    </fieldset>
+
+    <div style="display:flex; gap:12px; margin-top:24px;">
+        <button type="submit" class="btn btn-primary">{% if org %}Save Changes{% else %}Create Organization{% endif %}</button>
+        {% if org %}
+        <a href="/org/{{ org.id }}" class="btn btn-secondary">Cancel</a>
+        {% else %}
+        <a href="/" class="btn btn-secondary">Cancel</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ org.name }} — Dashboard{% endblock %}
+
+{% block nav_items %}
+{% if org.logo_path %}
+<img src="/logo/{{ org.id }}" class="org-logo">
+{% endif %}
+<span class="org-name">{{ org.name }}</span>
+<a href="/org/{{ org.id }}/edit">Settings</a>
+{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h1>{{ org.name }}</h1>
+</div>
+<p class="subtitle">{{ org.license_no }}{% if not org.is_manufacturer %} — Manufactured by {{ org.manufacturer_name }}{% endif %}</p>
+
+<!-- Products Section -->
+<div class="section-header">
+    <h2>Products</h2>
+    <a href="/org/{{ org.id }}/product/new" class="btn btn-primary">+ Add Product</a>
+</div>
+
+{% if org.products|length > 0 %}
+<div class="cards">
+    {% for product in org.products %}
+    <div class="card">
+        <h3>{{ product.brand_name }}-{{ product.strength_value|int }}</h3>
+        <p>{{ product.generic_name }} {{ product.strength_display }}</p>
+        <p>{{ product.dosage_form | replace('_', ' ') | title }}</p>
+        {% if product.schedule_type %}
+        <p style="color:#991b1b; font-size:0.75rem; font-weight:600;">Schedule {{ product.schedule_type }}</p>
+        {% endif %}
+        <p class="meta">{{ product.projects|length }} project{{ 's' if product.projects|length != 1 else '' }}</p>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+            <a href="/org/{{ org.id }}/product/{{ product.id }}/project/new" class="btn btn-success" style="padding:6px 14px; font-size:0.8rem;">New Packaging</a>
+            <a href="/org/{{ org.id }}/product/{{ product.id }}/edit" class="btn btn-secondary" style="padding:6px 14px; font-size:0.8rem;">Edit</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No products yet. Add your first product to start generating packaging.</p>
+    <a href="/org/{{ org.id }}/product/new" class="btn btn-primary">Add Product</a>
+</div>
+{% endif %}
+
+<!-- Recent Projects Section -->
+{% if projects|length > 0 %}
+<div class="section-header" style="margin-top:36px;">
+    <h2>Recent Packaging Projects</h2>
+</div>
+<div class="cards">
+    {% for proj in projects %}
+    <a href="/org/{{ org.id }}/project/{{ proj.id }}" style="text-decoration:none; color:inherit;">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:start;">
+                <h3>{{ proj.name }}</h3>
+                <span class="status-badge status-{{ proj.status }}">{{ proj.status }}</span>
+            </div>
+            <p>{{ proj.product.brand_name }}-{{ proj.product.strength_value|int }} — {{ proj.pack_size }}</p>
+            {% if proj.carton_internal_l %}
+            <p>Carton: {{ "%.1f"|format(proj.carton_internal_l) }} x {{ "%.1f"|format(proj.carton_internal_w) }} x {{ "%.1f"|format(proj.carton_internal_d) }} mm</p>
+            {% endif %}
+            <p class="meta">{{ proj.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

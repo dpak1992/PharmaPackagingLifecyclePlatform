@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Pharma Packaging Lifecycle Platform{% endblock %}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f7f8fa;
+            color: #1a1a2e;
+            line-height: 1.6;
+        }
+        nav {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        nav .brand {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1a56db;
+            text-decoration: none;
+        }
+        nav .org-name {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-left: auto;
+        }
+        nav .org-logo {
+            height: 28px;
+            width: auto;
+            border-radius: 4px;
+        }
+        nav a { color: #1a56db; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        nav a:hover { text-decoration: underline; }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 24px 60px;
+        }
+        h1 { font-size: 1.6rem; font-weight: 700; color: #111827; margin-bottom: 6px; }
+        h2 { font-size: 1.15rem; font-weight: 600; color: #111827; margin-bottom: 12px; }
+        p.subtitle { font-size: 0.92rem; color: #6b7280; margin-bottom: 24px; }
+        .error-banner {
+            background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px;
+            padding: 14px 18px; margin-bottom: 24px; color: #991b1b; font-size: 0.9rem;
+        }
+        fieldset {
+            border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px;
+            margin-bottom: 20px; background: #fff;
+        }
+        legend { font-size: 1rem; font-weight: 600; color: #1a56db; padding: 0 8px; }
+        .form-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+        .form-group { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+        .form-group.full { flex-basis: 100%; }
+        .form-group label { font-size: 0.82rem; font-weight: 500; color: #374151; margin-bottom: 4px; }
+        input[type="text"], input[type="number"], input[type="color"], input[type="file"],
+        select, textarea {
+            border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px;
+            font-size: 0.9rem; color: #111827; background: #fff; width: 100%;
+            transition: border-color 0.15s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none; border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+        }
+        textarea { resize: vertical; min-height: 60px; }
+        .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+        .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a56db; }
+        .checkbox-group label { margin-bottom: 0; font-size: 0.85rem; }
+        .hint { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px;
+            border-radius: 8px; font-size: 0.9rem; font-weight: 600; text-decoration: none;
+            border: none; cursor: pointer; transition: background 0.15s, transform 0.1s;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: #1a56db; color: #fff; }
+        .btn-primary:hover { background: #1644b5; }
+        .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+        .btn-secondary:hover { background: #e5e7eb; }
+        .btn-success { background: #16a34a; color: #fff; }
+        .btn-success:hover { background: #15803d; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .card {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+            padding: 20px; transition: box-shadow 0.15s;
+        }
+        .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+        .card p { font-size: 0.82rem; color: #6b7280; }
+        .card .meta { font-size: 0.75rem; color: #9ca3af; margin-top: 8px; }
+        .card a { color: #1a56db; text-decoration: none; font-weight: 500; }
+        .status-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+        }
+        .status-draft { background: #f3f4f6; color: #6b7280; }
+        .status-generated { background: #dbeafe; color: #1e40af; }
+        .status-approved { background: #dcfce7; color: #166534; }
+        .empty-state {
+            text-align: center; padding: 48px 24px; color: #9ca3af;
+        }
+        .empty-state p { font-size: 0.95rem; margin-bottom: 16px; }
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+        }
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="brand">PharmaPack</a>
+        {% block nav_items %}{% endblock %}
+    </nav>
+    <div class="container">
+        {% if error is defined and error %}
+        <div class="error-banner">{{ error }}</div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
