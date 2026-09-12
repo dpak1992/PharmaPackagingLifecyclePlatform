@@ -185,7 +185,11 @@ def compose_artwork_pdf(
     page_w = (dieline.total_width + 2 * BLEED) * mm
     page_h = (dieline.total_height + 2 * BLEED) * mm
 
-    c = Canvas(str(output_path), pagesize=(page_w, page_h))
+    c = Canvas(
+        str(output_path),
+        pagesize=(page_w, page_h),
+        pageCompression=1,  # enable zlib compression for smaller, faster PDFs
+    )
 
     # Set PDF metadata
     c.setTitle(f"Carton Artwork - {config.product.brand_name} {config.product.strength}")
@@ -259,28 +263,22 @@ def compose_artwork_pdf(
     # page-resource properties for the BDC operators we emitted.
     ocg_properties = _install_ocg_layers(c)
 
-    # Manually trigger page creation so we can patch its resources
-    # before the document is serialised.
-    c.showPage()
+    # Patch the page's check_format so that when save() finalises the
+    # document, our OCG Properties entries are injected into the page
+    # resources.  This lets us use the normal c.save() path which
+    # handles font subsetting, compression, and proper PDF structure.
+    _original_page_cf = c._doc.Pages.__class__.check_format
 
-    # The page was just added — patch it so that when check_format
-    # runs (during doc.format()), the Properties dict includes our
-    # OCG references.  check_format creates Resources only if
-    # page.Resources is None, so we wrap it to inject Properties
-    # after the default resource setup.
-    page = c._doc.Pages.pages[-1]
-    _original_check_format = page.check_format
+    def _patched_pages_cf(self_pages, document, _orig=_original_page_cf, _props=ocg_properties):
+        _orig(self_pages, document)
+        # After default resource creation on every page, inject OCG properties
+        for page in self_pages.pages:
+            if hasattr(page, 'Resources') and page.Resources is not None:
+                page.Resources.Properties.update(_props)
 
-    def _patched_check_format(document, _orig=_original_check_format, _props=ocg_properties):
-        _orig(document)
-        # After default resource creation, inject OCG properties
-        if page.Resources is not None:
-            page.Resources.Properties.update(_props)
+    c._doc.Pages.check_format = lambda doc, _pcf=_patched_pages_cf, _self=c._doc.Pages: _pcf(_self, doc)
 
-    page.check_format = _patched_check_format
-
-    # Save directly (showPage already consumed the content)
-    c._doc.SaveToFile(c._filename, c)
+    c.save()
     return output_path
 
 
