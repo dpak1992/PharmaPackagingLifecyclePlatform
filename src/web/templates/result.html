@@ -399,7 +399,9 @@
         const dir = new THREE.DirectionalLight(0xffffff, 0.9);
         dir.position.set(3, 4, 3);
         scene.add(dir);
-        scene.add(new THREE.DirectionalLight(0xffffff, 0.3).translateTo(-2, 2, -1) || new THREE.DirectionalLight(0xffffff, 0.3));
+        const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+        fill.position.set(-2, 2, -1);
+        scene.add(fill);
 
         const carton = new THREE.Group();
 
