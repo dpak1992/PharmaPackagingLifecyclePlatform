@@ -308,22 +308,65 @@ def _draw_artwork_layer(
             )
             c.restoreState()
 
-    # Color band at top of front panel (strength differentiation)
-    front = _get_panel_by_type(dieline, PanelType.FRONT)
-    if front and spot_colors:
+    # Color band at top of front and back panels (strength differentiation)
+    if spot_colors:
         brand_color = list(spot_colors.values())[0]
-        c.saveState()
-        c.setFillColor(brand_color)
-        band_height = 15.0  # mm
-        c.rect(
-            bx + front.x * mm,
-            by + (front.y + front.height - band_height) * mm,
-            front.width * mm,
-            band_height * mm,
-            fill=1,
-            stroke=0,
+        # Derive a slightly darker accent color for the bottom bar
+        accent_color = _cmyk_color(
+            min(brand_color.cyan * 100 + 10, 100),
+            min(brand_color.magenta * 100 + 10, 100),
+            min(brand_color.yellow * 100 + 10, 100),
+            min(brand_color.black * 100 + 5, 100),
         )
-        c.restoreState()
+
+        for ptype in (PanelType.FRONT, PanelType.BACK):
+            display_panel = _get_panel_by_type(dieline, ptype)
+            if not display_panel:
+                continue
+
+            # Brand color band — 20% of panel height
+            band_height = display_panel.height * 0.20
+            c.saveState()
+            c.setFillColor(brand_color)
+            c.rect(
+                bx + display_panel.x * mm,
+                by + (display_panel.y + display_panel.height - band_height) * mm,
+                display_panel.width * mm,
+                band_height * mm,
+                fill=1,
+                stroke=0,
+            )
+            c.restoreState()
+
+            # Thin accent bar at bottom (3mm) — geometric pattern area
+            c.saveState()
+            c.setFillColor(accent_color)
+            c.rect(
+                bx + display_panel.x * mm,
+                by + display_panel.y * mm,
+                display_panel.width * mm,
+                3.0 * mm,
+                fill=1,
+                stroke=0,
+            )
+            c.restoreState()
+
+        # Side panels — thin vertical brand color stripe (2mm) along left edge
+        for ptype in (PanelType.SIDE_RIGHT, PanelType.SIDE_LEFT):
+            side_panel = _get_panel_by_type(dieline, ptype)
+            if not side_panel:
+                continue
+            c.saveState()
+            c.setFillColor(brand_color)
+            c.rect(
+                bx + side_panel.x * mm,
+                by + side_panel.y * mm,
+                2.0 * mm,
+                side_panel.height * mm,
+                fill=1,
+                stroke=0,
+            )
+            c.restoreState()
 
 
 def _wrap_text(text: str, font_name: str, font_size: float, max_width_pt: float) -> List[str]:
@@ -386,9 +429,18 @@ def _draw_text_layer(
         # Calculate absolute position
         abs_x = bx + (panel.x + te.x) * mm
         abs_y = by + (panel.y + te.y) * mm
-        line_height = te.font_size * 1.3  # points
+        line_height = te.font_size * (1.4 if te.font_size < 7.0 else 1.3)
 
-        if te.rotation != 0:
+        # Tuck flap text is rendered upside-down (180°) since the flap folds over
+        if te.panel_type == PanelType.TOP_TUCK:
+            avail_width_pt = (panel.width - te.x - 2.0) * mm
+            wrapped = _wrap_text(te.content, font_name, te.font_size, avail_width_pt)
+
+            c.translate(abs_x, abs_y)
+            c.rotate(180)
+            for i, line in enumerate(wrapped):
+                c.drawString(0, -i * line_height, line)
+        elif te.rotation != 0:
             # For rotated text, available width = panel height minus text offset
             avail_width_pt = (panel.height - te.y) * mm
             wrapped = _wrap_text(te.content, font_name, te.font_size, avail_width_pt)
