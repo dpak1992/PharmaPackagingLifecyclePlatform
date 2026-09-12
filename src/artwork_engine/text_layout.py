@@ -167,7 +167,7 @@ def generate_default_artwork(config: PackagingConfig) -> ArtworkSpec:
         BarcodeElement(
             id="ean13",
             barcode_type=BarcodeType.EAN_13,
-            data="890123456789",
+            data="4006381333931",
             panel_type=PanelType.BACK,
             x=5.0, y=45.0,
             width=37.29,
@@ -225,5 +225,7 @@ def generate_default_artwork(config: PackagingConfig) -> ArtworkSpec:
             LayerName.TEXT,
             LayerName.BARCODE,
             LayerName.CODING,
+            LayerName.VARNISH,
+            LayerName.TECHNICAL,
         ],
     )

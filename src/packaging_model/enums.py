@@ -67,3 +67,4 @@ class LayerName(str, Enum):
     FOIL = "Foil"
     BRAILLE = "Braille"
     CODING = "Coding"
+    TECHNICAL = "Technical"

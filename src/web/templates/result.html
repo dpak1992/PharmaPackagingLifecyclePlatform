@@ -108,6 +108,104 @@
             font-weight: 500;
         }
         .back-link:hover { text-decoration: underline; }
+
+        /* Validation Results */
+        .validation-section {
+            margin-bottom: 28px;
+        }
+        .validation-summary-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .validation-summary-bar.all-pass {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .validation-summary-bar.has-fail {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .validation-summary-bar.has-warn {
+            background: #fefce8;
+            color: #854d0e;
+            border: 1px solid #fef08a;
+        }
+        .val-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+        }
+        .val-card.fail {
+            border: 1px solid #fecaca;
+            border-left: 4px solid #dc2626;
+        }
+        .val-card.warn {
+            border: 1px solid #fef08a;
+            border-left: 4px solid #ca8a04;
+        }
+        .val-card.pass {
+            border: 1px solid #e5e7eb;
+        }
+        .val-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .severity-badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .severity-critical {
+            background: #7f1d1d;
+            color: #fff;
+        }
+        .severity-major {
+            background: #ea580c;
+            color: #fff;
+        }
+        .severity-minor {
+            background: #facc15;
+            color: #422006;
+        }
+        .val-element {
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: #111827;
+        }
+        .val-message {
+            font-size: 0.85rem;
+            color: #374151;
+        }
+        .val-details {
+            font-size: 0.78rem;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+        .passed-details {
+            margin-top: 10px;
+        }
+        .passed-details summary {
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #166534;
+            padding: 6px 0;
+        }
     </style>
 </head>
 <body>
@@ -139,6 +237,70 @@
                 <div class="label">Barcodes</div>
                 <div class="value">{{ barcode_count }}</div>
             </div>
+        </div>
+
+        <!-- Validation Results -->
+        <div class="validation-section">
+            <h2 class="section-title">Validation Results</h2>
+
+            {% set pass_count = validation_pass|length %}
+            {% set fail_count = validation_fail|length %}
+            {% set warn_count = validation_warn|length %}
+
+            {% if fail_count > 0 %}
+            <div class="validation-summary-bar has-fail">
+                {{ pass_count }}/{{ validation_total }} checks passed &mdash; {{ fail_count }} failed, {{ warn_count }} warnings
+            </div>
+            {% elif warn_count > 0 %}
+            <div class="validation-summary-bar has-warn">
+                {{ pass_count }}/{{ validation_total }} checks passed &mdash; {{ warn_count }} warnings
+            </div>
+            {% else %}
+            <div class="validation-summary-bar all-pass">
+                {{ pass_count }}/{{ validation_total }} checks passed
+            </div>
+            {% endif %}
+
+            {% for v in validation_fail %}
+            <div class="val-card fail">
+                <div class="val-card-header">
+                    <span class="severity-badge severity-{{ v.severity.value }}">{{ v.severity.value }}</span>
+                    <span class="val-element">{{ v.element }}</span>
+                </div>
+                <div class="val-message">{{ v.message }}</div>
+                {% if v.details %}
+                <div class="val-details">{{ v.details }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {% for v in validation_warn %}
+            <div class="val-card warn">
+                <div class="val-card-header">
+                    <span class="severity-badge severity-{{ v.severity.value }}">{{ v.severity.value }}</span>
+                    <span class="val-element">{{ v.element }}</span>
+                </div>
+                <div class="val-message">{{ v.message }}</div>
+                {% if v.details %}
+                <div class="val-details">{{ v.details }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {% if validation_pass|length > 0 %}
+            <details class="passed-details">
+                <summary>{{ pass_count }} passed checks</summary>
+                {% for v in validation_pass %}
+                <div class="val-card pass">
+                    <div class="val-card-header">
+                        <span class="severity-badge severity-{{ v.severity.value }}">{{ v.severity.value }}</span>
+                        <span class="val-element">{{ v.element }}</span>
+                    </div>
+                    <div class="val-message">{{ v.message }}</div>
+                </div>
+                {% endfor %}
+            </details>
+            {% endif %}
         </div>
 
         <!-- Downloads -->

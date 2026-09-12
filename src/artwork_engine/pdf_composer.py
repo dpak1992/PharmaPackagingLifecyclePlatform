@@ -48,7 +48,9 @@ OCG_LAYER_NAMES: List[str] = [
     LayerName.TEXT.value,
     LayerName.BARCODE.value,
     LayerName.CODING.value,
+    LayerName.VARNISH.value,
     LayerName.DIELINE.value,
+    LayerName.TECHNICAL.value,
 ]
 
 
@@ -238,9 +240,19 @@ def compose_artwork_pdf(
     _draw_coding_layer(c, dieline, artwork, bx, by)
     _end_ocg_layer(c)
 
+    # === LAYER: VARNISH (varnish coverage areas) ===
+    _begin_ocg_layer(c, LayerName.VARNISH.value)
+    _draw_varnish_layer(c, dieline, bx, by)
+    _end_ocg_layer(c)
+
     # === LAYER: DIELINE (non-printing, on top) ===
     _begin_ocg_layer(c, LayerName.DIELINE.value)
     _draw_dieline_layer(c, dieline, bx, by)
+    _end_ocg_layer(c)
+
+    # === LAYER: TECHNICAL (non-printing technical notes) ===
+    _begin_ocg_layer(c, LayerName.TECHNICAL.value)
+    _draw_technical_layer(c, dieline, bx, by)
     _end_ocg_layer(c)
 
     # Install OCG layer objects into the PDF catalog and prepare
@@ -439,6 +451,34 @@ def _draw_barcode_layer(
         text_x = abs_x + (bc.width * mm) / 2
         c.drawCentredString(text_x, abs_y - 10, barcode_data.text)
 
+        # --- Quiet zone indicators ---
+        # GS1 requires 11 modules left, 7 modules right for EAN-13
+        module_width = (bc.width * mm) / 95.0 if bc.width > 0 else 0.33 * mm
+        left_quiet = 11 * module_width
+        right_quiet = 7 * module_width
+        qz_top = abs_y + bc.height * mm * scale_y
+        qz_bottom = abs_y
+
+        # Light gray dashed lines for quiet zone boundaries
+        c.setStrokeColor(_cmyk_color(0, 0, 0, 20))
+        c.setDash(1.5, 1.5)
+        c.setLineWidth(0.3)
+
+        # Left quiet zone boundary
+        left_boundary_x = abs_x - left_quiet
+        c.line(left_boundary_x, qz_bottom - 4, left_boundary_x, qz_top + 2)
+
+        # Right quiet zone boundary
+        right_boundary_x = abs_x + bc.width * mm + right_quiet
+        c.line(right_boundary_x, qz_bottom - 4, right_boundary_x, qz_top + 2)
+
+        # Standard barcode notation: ">" on left edge, "<" on right edge
+        c.setDash([])
+        c.setFont("Helvetica", 5)
+        c.setFillColor(_cmyk_color(0, 0, 0, 30))
+        c.drawString(left_boundary_x - 0.5 * mm, abs_y - 10, ">")
+        c.drawString(right_boundary_x - 1.5 * mm, abs_y - 10, "<")
+
         c.restoreState()
 
 
@@ -528,9 +568,65 @@ def _draw_dieline_layer(
 
     c.restoreState()
 
-    # Add "DIELINE - DO NOT PRINT" annotation
+
+def _draw_varnish_layer(
+    c: Canvas,
+    dieline: DielineSpec,
+    bx: float,
+    by: float,
+) -> None:
+    """Draw varnish coverage areas on body panels.
+
+    Shows where UV or aqueous varnish is applied, using a light cyan
+    transparent fill slightly inset from panel edges.
+    """
+    body_types = {PanelType.FRONT, PanelType.BACK, PanelType.SIDE_LEFT, PanelType.SIDE_RIGHT}
+    varnish_inset = 1.5  # mm inset from panel edges
+
+    for panel in dieline.panels:
+        if panel.panel_type in body_types:
+            c.saveState()
+            # Light cyan with transparency to indicate varnish coverage
+            c.setFillColor(_cmyk_color(15, 0, 0, 0, alpha=0.15))
+            c.rect(
+                bx + (panel.x + varnish_inset) * mm,
+                by + (panel.y + varnish_inset) * mm,
+                (panel.width - 2 * varnish_inset) * mm,
+                (panel.height - 2 * varnish_inset) * mm,
+                fill=1,
+                stroke=0,
+            )
+            c.restoreState()
+
+
+def _draw_technical_layer(
+    c: Canvas,
+    dieline: DielineSpec,
+    bx: float,
+    by: float,
+) -> None:
+    """Draw non-printing technical notes and annotations.
+
+    Includes the dieline annotation and production notes about
+    barcode quiet zones and coding area compatibility.
+    """
+    # Dieline color: bright magenta (non-printing convention)
+    dieline_color = _cmyk_color(0, 100, 0, 0)
+    note_color = _cmyk_color(0, 0, 0, 50)
+
+    # "DIELINE LAYER - DO NOT PRINT" annotation (moved from dieline layer)
     c.saveState()
     c.setFont("Helvetica", 4)
     c.setFillColor(dieline_color)
-    c.drawString(bx + 2 * mm, by - 2 * mm, "DIELINE LAYER — DO NOT PRINT")
+    c.drawString(bx + 2 * mm, by - 2 * mm, "DIELINE LAYER \u2014 DO NOT PRINT")
+    c.restoreState()
+
+    # Technical production notes
+    c.saveState()
+    c.setFont("Helvetica", 3.5)
+    c.setFillColor(note_color)
+    note_y = by - 5 * mm
+    c.drawString(bx + 2 * mm, note_y, "Barcode: verify quiet zones and scan grade before production")
+    note_y -= 3.5 * mm
+    c.drawString(bx + 2 * mm, note_y, "Coding areas: verify inkjet/thermal printer compatibility")
     c.restoreState()

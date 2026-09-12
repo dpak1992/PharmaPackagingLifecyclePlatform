@@ -133,7 +133,7 @@ class TestPdfOutput:
         """Each expected layer name must appear as an OCG entry in the PDF."""
         with open(sample_pdf, "rb") as f:
             data = f.read()
-        for layer_name in ["Dieline", "Artwork", "Text", "Barcode", "Coding"]:
+        for layer_name in ["Dieline", "Artwork", "Text", "Barcode", "Coding", "Varnish", "Technical"]:
             assert layer_name.encode() in data, f"Layer name '{layer_name}' not found in PDF"
 
     def test_contains_ocg_bdc_markers(self, sample_pdf):
@@ -163,7 +163,7 @@ class TestPdfOutput:
     def test_all_five_ocg_layers_have_bdc(self, sample_pdf):
         """Each of the five layer resource names must appear as BDC targets."""
         content = _decode_pdf_stream(sample_pdf)
-        for layer_name in ["Artwork", "Text", "Barcode", "Coding", "Dieline"]:
+        for layer_name in ["Artwork", "Text", "Barcode", "Coding", "Varnish", "Dieline", "Technical"]:
             marker = f"/OC_{layer_name} BDC"
             assert marker in content, f"Missing BDC marker for layer: {layer_name}"
 

@@ -24,6 +24,7 @@ from dieline_engine.geometry import compute_dieline
 from dieline_engine.dxf_export import export_dxf
 from artwork_engine.text_layout import generate_default_artwork
 from artwork_engine.pdf_composer import compose_artwork_pdf
+from validation_engine import check_completeness, validate_barcodes
 
 app = FastAPI(title="Pharma Packaging Lifecycle Platform")
 
@@ -135,6 +136,16 @@ async def generate(
         with open(json_path, "w") as f:
             f.write(config.model_dump_json(indent=2))
 
+        # Run validation
+        completeness_results = check_completeness(config, artwork)
+        barcode_results = validate_barcodes(artwork)
+        all_validations = completeness_results + barcode_results
+
+        # Separate by status
+        validation_pass = [v for v in all_validations if v.status.value == "pass"]
+        validation_fail = [v for v in all_validations if v.status.value == "fail"]
+        validation_warn = [v for v in all_validations if v.status.value == "warning"]
+
         # Store job
         job_id = uuid.uuid4().hex
         _jobs[job_id] = tmp_dir
@@ -165,6 +176,10 @@ async def generate(
                 "strength_str": str(config.product.strength),
                 "generic_name": config.product.generic_name,
                 "brand_cmyk": brand_cmyk,
+                "validation_pass": validation_pass,
+                "validation_fail": validation_fail,
+                "validation_warn": validation_warn,
+                "validation_total": len(all_validations),
             },
         )
 
