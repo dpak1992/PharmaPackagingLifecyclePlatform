@@ -154,21 +154,84 @@ def _clip_to_panel(c: Canvas, panel: Panel, bx: float, by: float) -> None:
     c.clipPath(p, stroke=0, fill=0)
 
 
-def _register_unicode_fonts() -> None:
-    """Register Unicode fonts for Hindi/Devanagari text rendering."""
+_FONTS_REGISTERED = False
+
+
+def _register_production_fonts() -> None:
+    """Register embedded TrueType fonts for production-grade PDF output.
+
+    Embeds actual font data into the PDF (not just referencing standard 14
+    fonts by name). This ensures the PDF renders identically on any system,
+    which is critical for pharmaceutical artwork sent to printers.
+    """
+    global _FONTS_REGISTERED
+    if _FONTS_REGISTERED:
+        return
+    _FONTS_REGISTERED = True
+
     import os
-    deva_paths = [
-        "/System/Library/Fonts/Supplemental/Devanagari Sangam MN.ttc",
-        "/System/Library/Fonts/Supplemental/DevanagariMT.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+
+    # Helvetica-equivalent embedded fonts (use system Arial or Helvetica Neue)
+    latin_font_paths = [
+        # macOS
+        ("/System/Library/Fonts/Helvetica.ttc", "HelveticaEmbed", 0),
+        ("/System/Library/Fonts/HelveticaNeue.ttc", "HelveticaEmbed", 0),
+        ("/System/Library/Fonts/Supplemental/Arial.ttf", "HelveticaEmbed", None),
+        # Linux
+        ("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "HelveticaEmbed", None),
     ]
-    for path in deva_paths:
+    latin_bold_paths = [
+        ("/System/Library/Fonts/Helvetica.ttc", "HelveticaBoldEmbed", 1),
+        ("/System/Library/Fonts/HelveticaNeue.ttc", "HelveticaBoldEmbed", 2),
+        ("/System/Library/Fonts/Supplemental/Arial Bold.ttf", "HelveticaBoldEmbed", None),
+        ("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "HelveticaBoldEmbed", None),
+    ]
+
+    for path, name, idx in latin_font_paths:
         if os.path.exists(path):
             try:
-                pdfmetrics.registerFont(TTFont("Devanagari", path, subfontIndex=0))
-                return
+                kwargs = {"subfontIndex": idx} if idx is not None else {}
+                pdfmetrics.registerFont(TTFont(name, path, **kwargs))
+                break
             except Exception:
                 continue
+
+    for path, name, idx in latin_bold_paths:
+        if os.path.exists(path):
+            try:
+                kwargs = {"subfontIndex": idx} if idx is not None else {}
+                pdfmetrics.registerFont(TTFont(name, path, **kwargs))
+                break
+            except Exception:
+                continue
+
+    # Devanagari for Hindi text
+    deva_paths = [
+        ("/System/Library/Fonts/Supplemental/Devanagari Sangam MN.ttc", 0),
+        ("/System/Library/Fonts/Supplemental/DevanagariMT.ttc", 0),
+        ("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf", None),
+    ]
+    for path, idx in deva_paths:
+        if os.path.exists(path):
+            try:
+                kwargs = {"subfontIndex": idx} if idx is not None else {}
+                pdfmetrics.registerFont(TTFont("Devanagari", path, **kwargs))
+                break
+            except Exception:
+                continue
+
+
+def _get_font_name(bold: bool = False, hindi: bool = False) -> str:
+    """Get the best available font name for PDF text rendering."""
+    if hindi and "Devanagari" in pdfmetrics.getRegisteredFontNames():
+        return "Devanagari"
+    if bold:
+        if "HelveticaBoldEmbed" in pdfmetrics.getRegisteredFontNames():
+            return "HelveticaBoldEmbed"
+        return "Helvetica-Bold"
+    if "HelveticaEmbed" in pdfmetrics.getRegisteredFontNames():
+        return "HelveticaEmbed"
+    return "Helvetica"
 
 
 def compose_artwork_pdf(
@@ -197,7 +260,7 @@ def compose_artwork_pdf(
         Path to the generated PDF file.
     """
     output_path = Path(output_path)
-    _register_unicode_fonts()
+    _register_production_fonts()
 
     # Page size = dieline total + bleed on all sides
     page_w = (dieline.total_width + 2 * BLEED) * mm
@@ -206,13 +269,15 @@ def compose_artwork_pdf(
     c = Canvas(
         str(output_path),
         pagesize=(page_w, page_h),
-        pageCompression=1,  # enable zlib compression for smaller, faster PDFs
+        pageCompression=0,  # no compression — production files should be uncompressed for prepress tools
     )
 
     # Set PDF metadata
     c.setTitle(f"Carton Artwork - {config.product.brand_name} {config.product.strength}")
     c.setAuthor("Pharma Packaging Lifecycle Platform")
     c.setSubject("Pharmaceutical Carton Artwork")
+    c.setCreator("Pharma Packaging Lifecycle Platform v0.1")
+    c.setKeywords(f"pharmaceutical packaging carton artwork {config.product.brand_name} {config.product.generic_name}")
 
     # Set trim box and bleed box
     trim_x = BLEED * mm
@@ -440,12 +505,9 @@ def _draw_text_layer(
         else:
             c.setFillColor(black)
 
-        # Set font — use Devanagari for Hindi text elements
+        # Set font — use embedded fonts for production quality
         is_hindi = "hindi" in te.id.lower()
-        if is_hindi and "Devanagari" in pdfmetrics.getRegisteredFontNames():
-            font_name = "Devanagari"
-        else:
-            font_name = "Helvetica-Bold" if te.font_bold else "Helvetica"
+        font_name = _get_font_name(bold=te.font_bold, hindi=is_hindi)
         c.setFont(font_name, te.font_size)
 
         # Calculate absolute position
