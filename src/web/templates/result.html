@@ -148,13 +148,284 @@
             <a href="/download/{{ job_id }}/json" class="dl-btn dl-json">Download JSON Config</a>
         </div>
 
+        <!-- 3D Carton Preview -->
+        <div class="preview-section">
+            <h2 class="section-title">3D Carton Preview</h2>
+            <p style="font-size:0.8rem; color:#6b7280; margin-bottom:10px;">Click and drag to rotate. Scroll to zoom.</p>
+            <canvas id="carton3d" style="width:100%; height:500px; border-radius:6px; background:#f0f2f5; cursor:grab;"></canvas>
+        </div>
+
         <!-- PDF Preview -->
         <div class="preview-section">
-            <h2 class="section-title">Artwork Preview</h2>
+            <h2 class="section-title">Artwork Preview (Flat Dieline)</h2>
             <iframe src="/preview/{{ job_id }}"></iframe>
         </div>
 
         <a href="/" class="back-link">&larr; Generate Another</a>
     </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const L = {{ carton_l }} / 100;
+        const W = {{ carton_w }} / 100;
+        const D = {{ carton_d }} / 100;
+
+        {% if brand_cmyk %}
+        const cmykC = {{ brand_cmyk.c }} / 100, cmykM = {{ brand_cmyk.m }} / 100;
+        const cmykY = {{ brand_cmyk.y }} / 100, cmykK = {{ brand_cmyk.k }} / 100;
+        const brandHex = [
+            Math.round(255 * (1 - cmykC) * (1 - cmykK)),
+            Math.round(255 * (1 - cmykM) * (1 - cmykK)),
+            Math.round(255 * (1 - cmykY) * (1 - cmykK)),
+        ];
+        const brandCSS = `rgb(${brandHex[0]},${brandHex[1]},${brandHex[2]})`;
+        {% else %}
+        const brandCSS = 'rgb(0,107,196)';
+        {% endif %}
+
+        const canvas = document.getElementById('carton3d');
+        const parentW = canvas.parentElement.getBoundingClientRect().width - 40;
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(parentW, 500);
+        renderer.setClearColor(0xf0f2f5);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(32, parentW / 500, 0.01, 100);
+        const maxDim = Math.max(L, W, D);
+        camera.position.set(maxDim * 2, maxDim * 1.6, maxDim * 3);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, L / 2, 0);
+        controls.update();
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+        dir.position.set(3, 4, 3);
+        scene.add(dir);
+        const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+        fill.position.set(-2, 2, -1);
+        scene.add(fill);
+
+        const carton = new THREE.Group();
+
+        // --- Canvas texture painter ---
+        function paintPanelTexture(w, h, drawFn) {
+            const res = 4;  // px per mm-equivalent unit
+            const cw = Math.round(w * 100 * res);
+            const ch = Math.round(h * 100 * res);
+            const c2 = document.createElement('canvas');
+            c2.width = cw;
+            c2.height = ch;
+            const ctx = c2.getContext('2d');
+            // Board background
+            ctx.fillStyle = '#f5f3ef';
+            ctx.fillRect(0, 0, cw, ch);
+            drawFn(ctx, cw, ch);
+            const tex = new THREE.CanvasTexture(c2);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+
+        function makeTexturedPanel(pw, ph, texture) {
+            const geo = new THREE.PlaneGeometry(pw, ph);
+            const mat = new THREE.MeshStandardMaterial({
+                map: texture,
+                roughness: 0.65,
+                metalness: 0.0,
+                side: THREE.FrontSide,
+            });
+            return new THREE.Mesh(geo, mat);
+        }
+
+        // --- FRONT PANEL ---
+        const frontTex = paintPanelTexture(W, L, (ctx, cw, ch) => {
+            // Brand color band at top (~12%)
+            const bandH = Math.round(ch * 0.12);
+            ctx.fillStyle = brandCSS;
+            ctx.fillRect(0, 0, cw, bandH);
+
+            // Rx in band
+            const rxSize = Math.round(bandH * 0.55);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${rxSize}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('Rx', Math.round(cw * 0.06), Math.round(bandH * 0.72));
+
+            // Brand name below band
+            const brandSize = Math.round(ch * 0.09);
+            ctx.fillStyle = brandCSS;
+            ctx.font = `bold ${brandSize}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('{{ brand_name }}', Math.round(cw * 0.06), bandH + brandSize + Math.round(ch * 0.06));
+
+            // Strength
+            const strSize = Math.round(ch * 0.065);
+            ctx.font = `bold ${strSize}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('{{ strength_str }}', Math.round(cw * 0.06), bandH + brandSize + strSize + Math.round(ch * 0.11));
+
+            // Generic name
+            const genSize = Math.round(ch * 0.04);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.font = `${genSize}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('{{ generic_name }} Tablets IP', Math.round(cw * 0.06), bandH + brandSize + strSize + genSize + Math.round(ch * 0.17));
+
+            // Pack size
+            const pkSize = Math.round(ch * 0.035);
+            ctx.font = `${pkSize}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('1 x 10 Tablets', Math.round(cw * 0.06), Math.round(ch * 0.58));
+        });
+        const frontPanel = makeTexturedPanel(W, L, frontTex);
+        frontPanel.position.set(0, L / 2, D / 2);
+        carton.add(frontPanel);
+
+        // --- BACK PANEL ---
+        const backTex = paintPanelTexture(W, L, (ctx, cw, ch) => {
+            const s = Math.round(ch * 0.028);
+            ctx.fillStyle = '#333';
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            let y = Math.round(ch * 0.06);
+            const lh = Math.round(s * 1.6);
+            const x = Math.round(cw * 0.08);
+
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('Mfd. by: {{ brand_name }} Pharma Ltd.', x, y); y += lh;
+            ctx.fillText('Mfg. Lic. No.: MH/15/2024/000123', x, y); y += lh * 2;
+
+            // Coding zones
+            ctx.strokeStyle = '#aaa';
+            ctx.setLineDash([4, 3]);
+            ctx.lineWidth = 1;
+            for (const label of ['B.No.:', 'Mfg. Date:', 'Exp. Date:']) {
+                ctx.strokeRect(x, y - s, cw * 0.6, lh);
+                ctx.fillStyle = '#888';
+                ctx.fillText(label, x + 4, y);
+                ctx.fillStyle = '#333';
+                y += lh + 4;
+            }
+            ctx.setLineDash([]);
+            y += lh;
+
+            // Barcode area
+            const bw = Math.round(cw * 0.5);
+            const bh = Math.round(ch * 0.14);
+            const bx = x;
+            ctx.fillStyle = '#000';
+            for (let i = 0; i < 30; i++) {
+                const barW = (i % 3 === 0) ? 3 : 1.5;
+                ctx.fillRect(bx + i * (bw / 30), y, barW, bh);
+            }
+            y += bh + Math.round(s * 0.8);
+            ctx.fillStyle = '#333';
+            ctx.font = `${Math.round(s * 0.85)}px monospace`;
+            ctx.fillText('8901234567890', bx + bw * 0.15, y);
+            y += lh * 2;
+
+            // MRP
+            ctx.strokeStyle = '#aaa';
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(x, y - s, cw * 0.65, lh);
+            ctx.fillStyle = '#555';
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('MRP: Rs.125.50 (Incl. of all taxes)', x + 4, y);
+            ctx.setLineDash([]);
+            y += lh * 3;
+
+            // Schedule H warning
+            ctx.fillStyle = '#c00';
+            ctx.font = `bold ${Math.round(s * 0.9)}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('SCHEDULE H DRUG - Warning:', x, y); y += lh;
+            ctx.fillStyle = '#333';
+            ctx.font = `${Math.round(s * 0.85)}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('To be sold by retail on the', x, y); y += Math.round(lh * 0.85);
+            ctx.fillText('prescription of a R.M.P. only.', x, y); y += lh * 1.5;
+            ctx.fillText('Keep out of reach of children.', x, y);
+        });
+        const backPanel = makeTexturedPanel(W, L, backTex);
+        backPanel.position.set(0, L / 2, -D / 2);
+        backPanel.rotation.y = Math.PI;
+        carton.add(backPanel);
+
+        // --- SIDE PANELS (rotated text) ---
+        function paintSideTexture(content) {
+            return paintPanelTexture(D, L, (ctx, cw, ch) => {
+                ctx.save();
+                ctx.translate(cw / 2, ch / 2);
+                ctx.rotate(-Math.PI / 2);
+                const s = Math.round(cw * 0.18);
+                ctx.fillStyle = '#333';
+                ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(content, 0, s * 0.3);
+                ctx.restore();
+            });
+        }
+
+        const rightTex = paintSideTexture('{{ generic_name }} {{ strength_str }}');
+        const rightPanel = makeTexturedPanel(D, L, rightTex);
+        rightPanel.position.set(W / 2, L / 2, 0);
+        rightPanel.rotation.y = Math.PI / 2;
+        carton.add(rightPanel);
+
+        const leftTex = paintSideTexture('{{ brand_name }} {{ strength_str }}');
+        const leftPanel = makeTexturedPanel(D, L, leftTex);
+        leftPanel.position.set(-W / 2, L / 2, 0);
+        leftPanel.rotation.y = -Math.PI / 2;
+        carton.add(leftPanel);
+
+        // --- TOP & BOTTOM (plain board) ---
+        const plainTex = paintPanelTexture(W, D, () => {});
+        const topPanel = makeTexturedPanel(W, D, plainTex);
+        topPanel.position.set(0, L, 0);
+        topPanel.rotation.x = -Math.PI / 2;
+        carton.add(topPanel);
+
+        const bottomPanel = makeTexturedPanel(W, D, plainTex);
+        bottomPanel.position.set(0, 0, 0);
+        bottomPanel.rotation.x = Math.PI / 2;
+        carton.add(bottomPanel);
+
+        // Edge wireframe
+        const edgeGeo = new THREE.BoxGeometry(W, L, D);
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x888888 });
+        const edgeLines = new THREE.LineSegments(new THREE.EdgesGeometry(edgeGeo), edgeMat);
+        edgeLines.position.set(0, L / 2, 0);
+        carton.add(edgeLines);
+
+        scene.add(carton);
+
+        // Ground shadow
+        const shGeo = new THREE.PlaneGeometry(maxDim * 3, maxDim * 3);
+        const shMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.05 });
+        const sh = new THREE.Mesh(shGeo, shMat);
+        sh.rotation.x = -Math.PI / 2;
+        sh.position.y = -0.003;
+        scene.add(sh);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            const pw = canvas.parentElement.getBoundingClientRect().width - 40;
+            renderer.setSize(pw, 500);
+            camera.aspect = pw / 500;
+            camera.updateProjectionMatrix();
+        });
+    </script>
 </body>
 </html>

@@ -150,13 +150,15 @@ class TestPdfOutput:
             data = f.read()
         assert b"OCProperties" in data, "No OCProperties in PDF catalog"
 
-    def test_text_clipping_operators_present(self, sample_pdf):
-        """Text layer must use clipping paths (W operator) for panel bounds."""
+    def test_long_text_is_wrapped_not_clipped(self, sample_pdf):
+        """Long text should be word-wrapped to multiple lines, not clipped."""
         content = _decode_pdf_stream(sample_pdf)
-        # ReportLab's clipPath emits: <path> W n
-        # The W operator sets the clipping path
-        assert " W " in content or " W*" in content or "\nW " in content or " W\n" in content, \
-            "No clipping (W/W* operator) found — text should be clipped to panels"
+        # The Schedule H warning is long — it should appear across multiple
+        # Tj operators (one per wrapped line) rather than being cut off.
+        # Count how many text draw operations contain "SCHEDULE" or warning words
+        schedule_lines = [l for l in content.split("\n") if "SCHEDULE" in l or "prescription" in l.lower() or "Registered" in l]
+        assert len(schedule_lines) >= 2, \
+            "Schedule H warning should be wrapped to multiple lines"
 
     def test_all_five_ocg_layers_have_bdc(self, sample_pdf):
         """Each of the five layer resource names must appear as BDC targets."""

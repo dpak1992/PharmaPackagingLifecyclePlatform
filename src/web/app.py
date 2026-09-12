@@ -139,6 +139,15 @@ async def generate(
         job_id = uuid.uuid4().hex
         _jobs[job_id] = tmp_dir
 
+        # Prepare spot color for 3D preview
+        brand_cmyk = None
+        if artwork.spot_colors:
+            sc = artwork.spot_colors[0]
+            brand_cmyk = {
+                "c": sc.cyan, "m": sc.magenta,
+                "y": sc.yellow, "k": sc.black,
+            }
+
         return templates.TemplateResponse(
             "result.html",
             {
@@ -152,6 +161,10 @@ async def generate(
                 "panel_count": len(dieline.panels),
                 "text_count": len(artwork.text_elements),
                 "barcode_count": len(artwork.barcodes),
+                "brand_name": config.product.brand_name,
+                "strength_str": str(config.product.strength),
+                "generic_name": config.product.generic_name,
+                "brand_cmyk": brand_cmyk,
             },
         )
 

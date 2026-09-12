@@ -316,6 +316,33 @@ def _draw_artwork_layer(
         c.restoreState()
 
 
+def _wrap_text(text: str, font_name: str, font_size: float, max_width_pt: float) -> List[str]:
+    """Word-wrap text to fit within max_width_pt (points).
+
+    Splits on existing newlines first, then wraps each line by word
+    to stay within the available width.
+    """
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    result = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            result.append("")
+            continue
+
+        current_line = words[0]
+        for word in words[1:]:
+            test = current_line + " " + word
+            if stringWidth(test, font_name, font_size) <= max_width_pt:
+                current_line = test
+            else:
+                result.append(current_line)
+                current_line = word
+        result.append(current_line)
+    return result
+
+
 def _draw_text_layer(
     c: Canvas,
     dieline: DielineSpec,
@@ -326,8 +353,8 @@ def _draw_text_layer(
 ) -> None:
     """Draw editable text objects on their respective panels.
 
-    Supports text rotation for narrow side panels — on real pharma cartons,
-    text on depth panels (typically 10-20mm wide) runs vertically.
+    Text is word-wrapped to fit within panel boundaries instead of being
+    clipped. Supports rotation for narrow side panels.
     """
     for te in artwork.text_elements:
         panel = _get_panel_by_type(dieline, te.panel_type)
@@ -335,9 +362,6 @@ def _draw_text_layer(
             continue
 
         c.saveState()
-
-        # Clip text to panel boundaries so long strings don't overflow
-        _clip_to_panel(c, panel, bx, by)
 
         # Set color
         if te.color_name and te.color_name in spot_colors:
@@ -352,21 +376,23 @@ def _draw_text_layer(
         # Calculate absolute position
         abs_x = bx + (panel.x + te.x) * mm
         abs_y = by + (panel.y + te.y) * mm
+        line_height = te.font_size * 1.3  # points
 
         if te.rotation != 0:
-            # Rotate around the text origin point
+            # For rotated text, available width = panel height minus text offset
+            avail_width_pt = (panel.height - te.y) * mm
+            wrapped = _wrap_text(te.content, font_name, te.font_size, avail_width_pt)
+
             c.translate(abs_x, abs_y)
             c.rotate(te.rotation)
-            # After rotation, draw at origin — text flows in rotated direction
-            lines = te.content.split("\n")
-            line_height = te.font_size * 1.3
-            for i, line in enumerate(lines):
+            for i, line in enumerate(wrapped):
                 c.drawString(0, -i * line_height, line)
         else:
-            # Normal horizontal text
-            lines = te.content.split("\n")
-            line_height = te.font_size * 1.3
-            for i, line in enumerate(lines):
+            # Available width = panel width minus text x-offset (with small margin)
+            avail_width_pt = (panel.width - te.x - 2.0) * mm
+            wrapped = _wrap_text(te.content, font_name, te.font_size, avail_width_pt)
+
+            for i, line in enumerate(wrapped):
                 c.drawString(abs_x, abs_y - i * line_height, line)
 
         c.restoreState()
@@ -434,19 +460,22 @@ def _draw_coding_layer(
 
         c.saveState()
 
-        # Clip coding zone labels to panel boundaries
-        _clip_to_panel(c, panel, bx, by)
-
         # Dashed outline for coding zone
         c.setStrokeColor(_cmyk_color(0, 0, 0, 30))
         c.setDash(2, 2)
         c.setLineWidth(0.5)
         c.rect(abs_x, abs_y, cz.width * mm, cz.height * mm, fill=0, stroke=1)
 
-        # Label text
-        c.setFont("Helvetica", 5.5)
+        # Label text — word-wrapped to fit within coding zone width
+        font_name = "Helvetica"
+        font_size = 5.5
+        c.setFont(font_name, font_size)
         c.setFillColor(_cmyk_color(0, 0, 0, 60))
-        c.drawString(abs_x + 1 * mm, abs_y + 1 * mm, cz.purpose)
+        avail = (cz.width - 2.0) * mm  # inner width minus margins
+        wrapped = _wrap_text(cz.purpose, font_name, font_size, avail)
+        lh = font_size * 1.3
+        for i, line in enumerate(wrapped):
+            c.drawString(abs_x + 1 * mm, abs_y + 1 * mm + (len(wrapped) - 1 - i) * lh, line)
 
         c.restoreState()
 
