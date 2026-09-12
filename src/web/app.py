@@ -176,6 +176,10 @@ async def generate(
                 "y": sc.yellow, "k": sc.black,
             }
 
+        # Build dosage label for 3D
+        from artwork_engine.text_layout import _DOSAGE_FORM_LABELS
+        dosage_label = _DOSAGE_FORM_LABELS.get(product.dosage_form, "Tablets IP")
+
         return templates.TemplateResponse(
             "result.html",
             {
@@ -190,8 +194,20 @@ async def generate(
                 "text_count": len(artwork.text_elements),
                 "barcode_count": len(artwork.barcodes),
                 "brand_name": config.product.brand_name,
+                "brand_name_hindi": config.product.brand_name_hindi or "",
                 "strength_str": str(config.product.strength),
+                "strength_val": int(config.product.strength.value),
                 "generic_name": config.product.generic_name,
+                "dosage_label": dosage_label,
+                "pack_size": config.pack_size,
+                "composition": config.product.composition.replace("\n", " ").replace("'", "\\'"),
+                "storage": config.product.storage_conditions.replace("'", "\\'"),
+                "mfg_name": config.product.manufacturer.name.replace("'", "\\'"),
+                "mfg_address": config.product.manufacturer.address.replace("\n", ", ").replace("'", "\\'"),
+                "mfg_license": config.product.manufacturer.license_no,
+                "marketer_name": config.product.marketer.name.replace("'", "\\'") if config.product.marketer else "",
+                "marketer_address": config.product.marketer.address.replace("\n", ", ").replace("'", "\\'") if config.product.marketer else "",
+                "has_schedule_h": bool(config.product.schedule_warning),
                 "brand_cmyk": brand_cmyk,
                 "validation_pass": validation_pass,
                 "validation_fail": validation_fail,

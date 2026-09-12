@@ -338,22 +338,43 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        const L = {{ carton_l }} / 100;
-        const W = {{ carton_w }} / 100;
-        const D = {{ carton_d }} / 100;
+        // Carton dimensions (mm → scene units)
+        const L = {{ carton_l }} / 100;  // height of erected carton
+        const W = {{ carton_w }} / 100;  // front/back panel width
+        const D = {{ carton_d }} / 100;  // side panel width (depth)
 
+        // Brand color
         {% if brand_cmyk %}
         const cmykC = {{ brand_cmyk.c }} / 100, cmykM = {{ brand_cmyk.m }} / 100;
         const cmykY = {{ brand_cmyk.y }} / 100, cmykK = {{ brand_cmyk.k }} / 100;
-        const brandHex = [
+        const brandRGB = [
             Math.round(255 * (1 - cmykC) * (1 - cmykK)),
             Math.round(255 * (1 - cmykM) * (1 - cmykK)),
             Math.round(255 * (1 - cmykY) * (1 - cmykK)),
         ];
-        const brandCSS = `rgb(${brandHex[0]},${brandHex[1]},${brandHex[2]})`;
+        const brandCSS = `rgb(${brandRGB[0]},${brandRGB[1]},${brandRGB[2]})`;
         {% else %}
         const brandCSS = 'rgb(0,107,196)';
         {% endif %}
+
+        // Product data from backend
+        const prodData = {
+            brand: '{{ brand_name }}',
+            brandHindi: '{{ brand_name_hindi }}',
+            generic: '{{ generic_name }}',
+            dosageLabel: '{{ dosage_label }}',
+            strength: '{{ strength_str }}',
+            strengthVal: {{ strength_val }},
+            packSize: '{{ pack_size }}',
+            composition: '{{ composition }}',
+            storage: '{{ storage }}',
+            mfgName: '{{ mfg_name }}',
+            mfgAddress: '{{ mfg_address }}',
+            mfgLicense: '{{ mfg_license }}',
+            marketerName: '{{ marketer_name }}',
+            marketerAddress: '{{ marketer_address }}',
+            hasScheduleH: {{ 'true' if has_schedule_h else 'false' }},
+        };
 
         const canvas = document.getElementById('carton3d');
         const parentW = canvas.parentElement.getBoundingClientRect().width - 40;
@@ -366,7 +387,7 @@
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(32, parentW / 500, 0.01, 100);
         const maxDim = Math.max(L, W, D);
-        camera.position.set(maxDim * 2, maxDim * 1.6, maxDim * 3);
+        camera.position.set(maxDim * 2.2, maxDim * 1.5, maxDim * 2.8);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -374,26 +395,22 @@
         controls.target.set(0, L / 2, 0);
         controls.update();
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.65));
         const dir = new THREE.DirectionalLight(0xffffff, 0.9);
         dir.position.set(3, 4, 3);
         scene.add(dir);
-        const fill = new THREE.DirectionalLight(0xffffff, 0.35);
-        fill.position.set(-2, 2, -1);
-        scene.add(fill);
+        scene.add(new THREE.DirectionalLight(0xffffff, 0.3).translateTo(-2, 2, -1) || new THREE.DirectionalLight(0xffffff, 0.3));
 
         const carton = new THREE.Group();
 
-        // --- Canvas texture painter ---
-        function paintPanelTexture(w, h, drawFn) {
-            const res = 4;  // px per mm-equivalent unit
+        // --- Texture helpers ---
+        function paintTex(w, h, drawFn) {
+            const res = 5;
             const cw = Math.round(w * 100 * res);
             const ch = Math.round(h * 100 * res);
             const c2 = document.createElement('canvas');
-            c2.width = cw;
-            c2.height = ch;
+            c2.width = cw; c2.height = ch;
             const ctx = c2.getContext('2d');
-            // Board background
             ctx.fillStyle = '#f5f3ef';
             ctx.fillRect(0, 0, cw, ch);
             drawFn(ctx, cw, ch);
@@ -402,175 +419,310 @@
             return tex;
         }
 
-        function makeTexturedPanel(pw, ph, texture) {
+        function makePanel(pw, ph, texture) {
             const geo = new THREE.PlaneGeometry(pw, ph);
-            const mat = new THREE.MeshStandardMaterial({
-                map: texture,
-                roughness: 0.65,
-                metalness: 0.0,
-                side: THREE.FrontSide,
-            });
-            return new THREE.Mesh(geo, mat);
+            return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+                map: texture, roughness: 0.6, metalness: 0.0, side: THREE.FrontSide,
+            }));
         }
 
-        // --- FRONT PANEL ---
-        const frontTex = paintPanelTexture(W, L, (ctx, cw, ch) => {
-            // Brand color band at top (~12%)
-            const bandH = Math.round(ch * 0.12);
+        // Wrap text helper for canvas 2d
+        function wrapText(ctx, text, x, y, maxW, lineH) {
+            const words = text.split(' ');
+            let line = '';
+            for (const word of words) {
+                const test = line + (line ? ' ' : '') + word;
+                if (ctx.measureText(test).width > maxW && line) {
+                    ctx.fillText(line, x, y);
+                    y += lineH;
+                    line = word;
+                } else { line = test; }
+            }
+            if (line) { ctx.fillText(line, x, y); y += lineH; }
+            return y;
+        }
+
+        // ==================================================
+        // FRONT PANEL — brand display (matches real artwork)
+        // ==================================================
+        function paintDisplayFace(ctx, cw, ch) {
+            const pad = Math.round(cw * 0.06);
+
+            // Brand color band — top 20%
+            const bandH = Math.round(ch * 0.20);
             ctx.fillStyle = brandCSS;
             ctx.fillRect(0, 0, cw, bandH);
 
-            // Rx in band
-            const rxSize = Math.round(bandH * 0.55);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = `bold ${rxSize}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('Rx', Math.round(cw * 0.06), Math.round(bandH * 0.72));
+            // Accent bar — bottom 2%
+            ctx.fillRect(0, ch - Math.round(ch * 0.02), cw, Math.round(ch * 0.02));
 
-            // Brand name below band
-            const brandSize = Math.round(ch * 0.09);
+            // Rx in white on the band
+            const rxS = Math.round(bandH * 0.35);
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${rxS}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('Rx', pad, Math.round(bandH * 0.45));
+
+            let y = bandH + Math.round(ch * 0.06);
+
+            // Generic name (large, black)
+            const genS = Math.round(ch * 0.045);
+            ctx.fillStyle = '#111';
+            ctx.font = `bold ${genS}px -apple-system, Helvetica, sans-serif`;
+            y = wrapText(ctx, `${prodData.generic} ${prodData.dosageLabel} ${prodData.strength}`, pad, y, cw - pad * 2, genS * 1.3);
+            y += Math.round(ch * 0.02);
+
+            // Brand name (bold, brand color)
+            const brS = Math.round(ch * 0.065);
             ctx.fillStyle = brandCSS;
-            ctx.font = `bold ${brandSize}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('{{ brand_name }}', Math.round(cw * 0.06), bandH + brandSize + Math.round(ch * 0.06));
+            ctx.font = `bold ${brS}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText(`${prodData.brand}-${prodData.strengthVal}`, pad, y);
+            y += brS * 1.2;
 
-            // Strength
-            const strSize = Math.round(ch * 0.065);
-            ctx.font = `bold ${strSize}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('{{ strength_str }}', Math.round(cw * 0.06), bandH + brandSize + strSize + Math.round(ch * 0.11));
+            // Hindi brand name
+            if (prodData.brandHindi) {
+                const hiS = Math.round(ch * 0.032);
+                ctx.fillStyle = '#333';
+                ctx.font = `${hiS}px -apple-system, Helvetica, sans-serif`;
+                ctx.fillText(prodData.brandHindi, pad, y);
+                y += hiS * 1.3;
+            }
 
-            // Generic name
-            const genSize = Math.round(ch * 0.04);
-            ctx.fillStyle = '#1a1a2e';
-            ctx.font = `${genSize}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('{{ generic_name }} Tablets IP', Math.round(cw * 0.06), bandH + brandSize + strSize + genSize + Math.round(ch * 0.17));
+            // Pack size at bottom
+            const pkS = Math.round(ch * 0.03);
+            ctx.fillStyle = '#333';
+            ctx.font = `${pkS}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText(`${prodData.packSize} ${prodData.dosageLabel.split(' ')[0]}s`, pad, ch - Math.round(ch * 0.05));
+        }
 
-            // Pack size
-            const pkSize = Math.round(ch * 0.035);
-            ctx.font = `${pkSize}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('1 x 10 Tablets', Math.round(cw * 0.06), Math.round(ch * 0.58));
-        });
-        const frontPanel = makeTexturedPanel(W, L, frontTex);
+        const frontTex = paintTex(W, L, paintDisplayFace);
+        const frontPanel = makePanel(W, L, frontTex);
         frontPanel.position.set(0, L / 2, D / 2);
         carton.add(frontPanel);
 
-        // --- BACK PANEL ---
-        const backTex = paintPanelTexture(W, L, (ctx, cw, ch) => {
-            const s = Math.round(ch * 0.028);
-            ctx.fillStyle = '#333';
-            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
-            let y = Math.round(ch * 0.06);
-            const lh = Math.round(s * 1.6);
-            const x = Math.round(cw * 0.08);
-
-            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('Mfd. by: {{ brand_name }} Pharma Ltd.', x, y); y += lh;
-            ctx.fillText('Mfg. Lic. No.: MH/15/2024/000123', x, y); y += lh * 2;
-
-            // Coding zones
-            ctx.strokeStyle = '#aaa';
-            ctx.setLineDash([4, 3]);
-            ctx.lineWidth = 1;
-            for (const label of ['B.No.:', 'Mfg. Date:', 'Exp. Date:']) {
-                ctx.strokeRect(x, y - s, cw * 0.6, lh);
-                ctx.fillStyle = '#888';
-                ctx.fillText(label, x + 4, y);
-                ctx.fillStyle = '#333';
-                y += lh + 4;
-            }
-            ctx.setLineDash([]);
-            y += lh;
-
-            // Barcode area
-            const bw = Math.round(cw * 0.5);
-            const bh = Math.round(ch * 0.14);
-            const bx = x;
-            ctx.fillStyle = '#000';
-            for (let i = 0; i < 30; i++) {
-                const barW = (i % 3 === 0) ? 3 : 1.5;
-                ctx.fillRect(bx + i * (bw / 30), y, barW, bh);
-            }
-            y += bh + Math.round(s * 0.8);
-            ctx.fillStyle = '#333';
-            ctx.font = `${Math.round(s * 0.85)}px monospace`;
-            ctx.fillText('8901234567890', bx + bw * 0.15, y);
-            y += lh * 2;
-
-            // MRP
-            ctx.strokeStyle = '#aaa';
-            ctx.setLineDash([4, 3]);
-            ctx.strokeRect(x, y - s, cw * 0.65, lh);
-            ctx.fillStyle = '#555';
-            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('MRP: Rs.125.50 (Incl. of all taxes)', x + 4, y);
-            ctx.setLineDash([]);
-            y += lh * 3;
-
-            // Schedule H warning
-            ctx.fillStyle = '#c00';
-            ctx.font = `bold ${Math.round(s * 0.9)}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('SCHEDULE H DRUG - Warning:', x, y); y += lh;
-            ctx.fillStyle = '#333';
-            ctx.font = `${Math.round(s * 0.85)}px -apple-system, Helvetica, sans-serif`;
-            ctx.fillText('To be sold by retail on the', x, y); y += Math.round(lh * 0.85);
-            ctx.fillText('prescription of a R.M.P. only.', x, y); y += lh * 1.5;
-            ctx.fillText('Keep out of reach of children.', x, y);
-        });
-        const backPanel = makeTexturedPanel(W, L, backTex);
+        // ==================================================
+        // BACK PANEL — identical display face
+        // ==================================================
+        const backTex = paintTex(W, L, paintDisplayFace);
+        const backPanel = makePanel(W, L, backTex);
         backPanel.position.set(0, L / 2, -D / 2);
         backPanel.rotation.y = Math.PI;
         carton.add(backPanel);
 
-        // --- SIDE PANELS (rotated text) ---
-        function paintSideTexture(content) {
-            return paintPanelTexture(D, L, (ctx, cw, ch) => {
-                ctx.save();
-                ctx.translate(cw / 2, ch / 2);
-                ctx.rotate(-Math.PI / 2);
-                const s = Math.round(cw * 0.18);
-                ctx.fillStyle = '#333';
-                ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.fillText(content, 0, s * 0.3);
-                ctx.restore();
-            });
-        }
+        // ==================================================
+        // SIDE RIGHT — regulatory/composition panel
+        // ==================================================
+        const rightTex = paintTex(D, L, (ctx, cw, ch) => {
+            // Vertical brand stripe (left edge)
+            ctx.fillStyle = brandCSS;
+            ctx.fillRect(0, 0, Math.round(cw * 0.04), ch);
 
-        const rightTex = paintSideTexture('{{ generic_name }} {{ strength_str }}');
-        const rightPanel = makeTexturedPanel(D, L, rightTex);
+            const pad = Math.round(cw * 0.08);
+            const maxW = cw - pad * 2;
+            const s = Math.max(Math.round(ch * 0.018), 10);
+            const lh = Math.round(s * 1.5);
+            let y = Math.round(ch * 0.04);
+
+            // Composition heading
+            ctx.fillStyle = '#111';
+            ctx.font = `bold ${Math.round(s * 1.1)}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('Composition:', pad, y); y += lh;
+
+            // Composition text
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillStyle = '#333';
+            y = wrapText(ctx, prodData.composition, pad, y, maxW, lh);
+            y += lh * 0.5;
+
+            // Dosage
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            y = wrapText(ctx, 'Dosage: As directed by the Physician.', pad, y, maxW, lh);
+            y += lh * 0.3;
+
+            // Storage
+            ctx.font = `bold ${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillStyle = '#111';
+            ctx.fillText('Storage:', pad, y); y += lh;
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillStyle = '#333';
+            y = wrapText(ctx, prodData.storage, pad, y, maxW, lh);
+            y += lh * 0.3;
+
+            // Children warning
+            y = wrapText(ctx, 'Keep medicine out of reach of children.', pad, y, maxW, lh);
+            y += lh * 0.3;
+            y = wrapText(ctx, 'Do not chew or crush the capsule, it should be swallowed whole with water.', pad, y, maxW, lh);
+            y += lh;
+
+            // Schedule H warning (red box)
+            if (prodData.hasScheduleH) {
+                const boxY = y - Math.round(s * 0.3);
+                const boxH = lh * 3.5;
+                ctx.fillStyle = '#fee2e2';
+                ctx.fillRect(pad - 4, boxY, maxW + 8, boxH);
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(pad - 4, boxY, maxW + 8, boxH);
+
+                ctx.fillStyle = '#991b1b';
+                ctx.font = `bold ${Math.round(s * 0.9)}px -apple-system, Helvetica, sans-serif`;
+                y = wrapText(ctx, 'SCHEDULE H PRESCRIPTION DRUG - CAUTION: Not to be sold by retail without the prescription of a Registered Medical Practitioner.', pad, y, maxW, lh);
+                y = boxY + boxH + lh;
+            }
+
+            // Manufacturer
+            y += lh * 0.5;
+            ctx.fillStyle = '#111';
+            ctx.font = `bold ${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('Manufactured in India by:', pad, y); y += lh;
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillStyle = '#333';
+            y = wrapText(ctx, prodData.mfgName, pad, y, maxW, lh);
+            y = wrapText(ctx, prodData.mfgAddress, pad, y, maxW, lh);
+            ctx.fillText(`Mfg. Lic. No.: ${prodData.mfgLicense}`, pad, y); y += lh;
+
+            // Marketer
+            if (prodData.marketerName) {
+                y += lh * 0.5;
+                ctx.fillStyle = '#111';
+                ctx.font = `bold ${s}px -apple-system, Helvetica, sans-serif`;
+                ctx.fillText('Marketed by:', pad, y); y += lh;
+                ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+                ctx.fillStyle = '#333';
+                y = wrapText(ctx, prodData.marketerName, pad, y, maxW, lh);
+                y = wrapText(ctx, prodData.marketerAddress, pad, y, maxW, lh);
+            }
+
+            // Barcode at bottom
+            const barcodeY = ch - Math.round(ch * 0.18);
+            const bw = Math.round(maxW * 0.6);
+            ctx.fillStyle = '#000';
+            for (let i = 0; i < 30; i++) {
+                const barW = (i % 3 === 0) ? 3 : 1.5;
+                ctx.fillRect(pad + i * (bw / 30), barcodeY, barW, Math.round(ch * 0.1));
+            }
+            ctx.font = `${Math.round(s * 0.8)}px monospace`;
+            ctx.fillText('4006381333931', pad + bw * 0.1, barcodeY + Math.round(ch * 0.12));
+        });
+        const rightPanel = makePanel(D, L, rightTex);
         rightPanel.position.set(W / 2, L / 2, 0);
         rightPanel.rotation.y = Math.PI / 2;
         carton.add(rightPanel);
 
-        const leftTex = paintSideTexture('{{ brand_name }} {{ strength_str }}');
-        const leftPanel = makeTexturedPanel(D, L, leftTex);
+        // ==================================================
+        // SIDE LEFT — coding/batch panel
+        // ==================================================
+        const leftTex = paintTex(D, L, (ctx, cw, ch) => {
+            // Vertical brand stripe (left edge)
+            ctx.fillStyle = brandCSS;
+            ctx.fillRect(0, 0, Math.round(cw * 0.04), ch);
+
+            const pad = Math.round(cw * 0.08);
+            const maxW = cw - pad * 2;
+            const s = Math.max(Math.round(ch * 0.018), 10);
+            const lh = Math.round(s * 1.5);
+            let y = Math.round(ch * 0.04);
+
+            // Mfg. Lic. No.
+            ctx.fillStyle = '#333';
+            ctx.font = `${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText(`Mfg. Lic. No.: ${prodData.mfgLicense}`, pad, y); y += lh * 2;
+
+            // Coding zones — dashed boxes
+            ctx.strokeStyle = '#999';
+            ctx.setLineDash([4, 3]);
+            ctx.lineWidth = 1;
+            for (const label of ['Batch No. :', 'Mfg. Date :', 'Expiry Date :', 'M.R.P.      :']) {
+                ctx.strokeRect(pad, y - s, maxW, lh * 1.2);
+                ctx.fillStyle = '#666';
+                ctx.fillText(label, pad + 4, y);
+                y += lh * 1.2 + 6;
+            }
+            ctx.setLineDash([]);
+
+            // UVZ box
+            y += lh;
+            ctx.fillStyle = '#fef2f2';
+            ctx.fillRect(pad, y, Math.round(maxW * 0.5), lh * 2);
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pad, y, Math.round(maxW * 0.5), lh * 2);
+            ctx.fillStyle = '#991b1b';
+            ctx.font = `bold ${Math.round(s * 1.2)}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('UVZ', pad + Math.round(maxW * 0.15), y + lh * 1.3);
+            y += lh * 3;
+
+            // Per capsules note
+            ctx.fillStyle = '#555';
+            ctx.font = `${Math.round(s * 0.85)}px -apple-system, Helvetica, sans-serif`;
+            ctx.fillText('(Inclusive of all taxes)', pad, y); y += lh;
+
+            // Marketer at bottom
+            if (prodData.marketerName) {
+                y = ch - Math.round(ch * 0.25);
+                ctx.fillStyle = '#111';
+                ctx.font = `bold ${s}px -apple-system, Helvetica, sans-serif`;
+                ctx.fillText('Marketed by:', pad, y); y += lh;
+                ctx.font = `bold ${Math.round(s * 1.05)}px -apple-system, Helvetica, sans-serif`;
+                ctx.fillStyle = brandCSS;
+                y = wrapText(ctx, prodData.marketerName, pad, y, maxW, lh);
+                ctx.fillStyle = '#333';
+                ctx.font = `${Math.round(s * 0.85)}px -apple-system, Helvetica, sans-serif`;
+                y = wrapText(ctx, prodData.marketerAddress, pad, y, maxW, lh);
+            }
+
+            // Barcode at very bottom
+            const barcodeY = ch - Math.round(ch * 0.08);
+            const bw = Math.round(maxW * 0.7);
+            ctx.fillStyle = '#000';
+            for (let i = 0; i < 30; i++) {
+                const barW = (i % 3 === 0) ? 3 : 1.5;
+                ctx.fillRect(pad + i * (bw / 30), barcodeY, barW, Math.round(ch * 0.05));
+            }
+        });
+        const leftPanel = makePanel(D, L, leftTex);
         leftPanel.position.set(-W / 2, L / 2, 0);
         leftPanel.rotation.y = -Math.PI / 2;
         carton.add(leftPanel);
 
-        // --- TOP & BOTTOM (plain board) ---
-        const plainTex = paintPanelTexture(W, D, () => {});
-        const topPanel = makeTexturedPanel(W, D, plainTex);
+        // ==================================================
+        // TOP — tuck flap with brand info
+        // ==================================================
+        const topTex = paintTex(W, D, (ctx, cw, ch) => {
+            ctx.fillStyle = brandCSS;
+            ctx.fillRect(0, 0, cw, ch);
+            const s = Math.round(Math.min(cw, ch) * 0.12);
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${s}px -apple-system, Helvetica, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(`${prodData.packSize} ${prodData.dosageLabel.split(' ')[0]}s`, cw / 2, ch / 2 + s * 0.3);
+        });
+        const topPanel = makePanel(W, D, topTex);
         topPanel.position.set(0, L, 0);
         topPanel.rotation.x = -Math.PI / 2;
         carton.add(topPanel);
 
-        const bottomPanel = makeTexturedPanel(W, D, plainTex);
+        // BOTTOM — plain
+        const bottomTex = paintTex(W, D, () => {});
+        const bottomPanel = makePanel(W, D, bottomTex);
         bottomPanel.position.set(0, 0, 0);
         bottomPanel.rotation.x = Math.PI / 2;
         carton.add(bottomPanel);
 
         // Edge wireframe
-        const edgeGeo = new THREE.BoxGeometry(W, L, D);
-        const edgeMat = new THREE.LineBasicMaterial({ color: 0x888888 });
-        const edgeLines = new THREE.LineSegments(new THREE.EdgesGeometry(edgeGeo), edgeMat);
+        const edgeLines = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.BoxGeometry(W, L, D)),
+            new THREE.LineBasicMaterial({ color: 0x888888 })
+        );
         edgeLines.position.set(0, L / 2, 0);
         carton.add(edgeLines);
 
         scene.add(carton);
 
         // Ground shadow
-        const shGeo = new THREE.PlaneGeometry(maxDim * 3, maxDim * 3);
-        const shMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.05 });
-        const sh = new THREE.Mesh(shGeo, shMat);
+        const sh = new THREE.Mesh(
+            new THREE.PlaneGeometry(maxDim * 3, maxDim * 3),
+            new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.05 })
+        );
         sh.rotation.x = -Math.PI / 2;
         sh.position.y = -0.003;
         scene.add(sh);
