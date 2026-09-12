@@ -52,20 +52,25 @@ async def form_page(request: Request, error: Optional[str] = None):
 async def generate(
     request: Request,
     brand_name: str = Form(...),
+    brand_name_hindi: str = Form(""),
     generic_name: str = Form(...),
     strength: float = Form(...),
     strength_unit: str = Form("mg"),
-    dosage_form: str = Form("tablet"),
+    dosage_form: str = Form("capsule"),
     composition: str = Form(...),
     schedule_h: Optional[str] = Form(None),
     mfg_name: str = Form(...),
     mfg_address: str = Form(...),
     license_no: str = Form(...),
-    pack_size: str = Form("1 x 10"),
+    marketer_name: str = Form(""),
+    marketer_address: str = Form(""),
+    marketer_license: str = Form(""),
+    pack_size: str = Form("10x3x10"),
+    blisters_per_carton: int = Form(3),
     mrp: str = Form(""),
-    blister_length: float = Form(120.0),
-    blister_width: float = Form(50.0),
-    blister_height: float = Form(8.0),
+    blister_length: float = Form(189.0),
+    blister_width: float = Form(53.0),
+    blister_height: float = Form(8.4),
     board_caliper: float = Form(0.40),
     clearance: float = Form(2.0),
     leaflet_allowance: float = Form(5.0),
@@ -84,9 +89,19 @@ async def generate(
             "prescription of a Registered Medical Practitioner only."
         ) if schedule_h else ""
 
+        # Build marketer if provided
+        marketer = None
+        if marketer_name and marketer_name.strip():
+            marketer = Manufacturer(
+                name=marketer_name.strip(),
+                address=marketer_address.strip() if marketer_address else "",
+                license_no=marketer_license.strip() if marketer_license else "",
+            )
+
         product = Product(
             id=f"{brand_name.upper().replace(' ', '-')}-{int(strength)}",
             brand_name=brand_name,
+            brand_name_hindi=brand_name_hindi.strip() if brand_name_hindi and brand_name_hindi.strip() else None,
             generic_name=generic_name,
             strength=Strength(value=strength, unit=strength_unit),
             dosage_form=DosageForm(dosage_form),
@@ -96,6 +111,7 @@ async def generate(
                 address=mfg_address,
                 license_no=license_no,
             ),
+            marketer=marketer,
             schedule_warning=schedule_warning,
         )
 
@@ -109,6 +125,7 @@ async def generate(
             board=BoardSpec(caliper=board_caliper),
             clearance=clearance,
             leaflet_allowance=leaflet_allowance,
+            blisters_per_carton=blisters_per_carton,
         )
 
         config = PackagingConfig(

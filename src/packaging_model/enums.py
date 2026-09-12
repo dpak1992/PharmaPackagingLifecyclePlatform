@@ -6,6 +6,8 @@ class DosageForm(str, Enum):
     CAPSULE = "capsule"
     FILM_COATED_TABLET = "film_coated_tablet"
     CHEWABLE_TABLET = "chewable_tablet"
+    HARD_GELATIN_CAPSULE = "hard_gelatin_capsule"
+    SOFT_GELATIN_CAPSULE = "soft_gelatin_capsule"
 
 
 class CartonConstruction(str, Enum):

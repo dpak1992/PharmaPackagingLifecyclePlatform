@@ -14,6 +14,13 @@ from packaging_model.models import (
     SpotColor,
     PackagingConfig,
 )
+
+# Re-export for convenience
+__all__ = [
+    "Product", "Manufacturer", "Strength", "BlisterSpec", "BoardSpec",
+    "CartonSpec", "DielineSpec", "Panel", "ArtworkSpec", "TextElement",
+    "BarcodeElement", "CodingZone", "SpotColor", "PackagingConfig",
+]
 from packaging_model.enums import (
     DosageForm,
     CartonConstruction,

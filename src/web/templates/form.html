@@ -139,17 +139,24 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="brand_name">Brand Name</label>
-                        <input type="text" id="brand_name" name="brand_name" value="AZICURE" required>
+                        <input type="text" id="brand_name" name="brand_name" value="Ventimox" required>
                     </div>
                     <div class="form-group">
+                        <label for="brand_name_hindi">Brand Name (Hindi)</label>
+                        <input type="text" id="brand_name_hindi" name="brand_name_hindi" value="">
+                        <span class="hint">Optional — e.g. वेन्टीमॉक्स</span>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label for="generic_name">Generic Name</label>
-                        <input type="text" id="generic_name" name="generic_name" value="Azithromycin" required>
+                        <input type="text" id="generic_name" name="generic_name" value="Amoxycillin Trihydrate" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="strength">Strength</label>
-                        <input type="number" id="strength" name="strength" value="500" step="any" required>
+                        <input type="number" id="strength" name="strength" value="250" step="any" required>
                     </div>
                     <div class="form-group">
                         <label for="strength_unit">Unit</label>
@@ -163,7 +170,7 @@
                         <label for="dosage_form">Dosage Form</label>
                         <select id="dosage_form" name="dosage_form">
                             {% for form in dosage_forms %}
-                            <option value="{{ form.value }}" {% if form.value == "tablet" %}selected{% endif %}>{{ form.value | replace('_', ' ') | title }}</option>
+                            <option value="{{ form.value }}" {% if form.value == "capsule" %}selected{% endif %}>{{ form.value | replace('_', ' ') | title }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -171,7 +178,7 @@
                 <div class="form-row">
                     <div class="form-group full">
                         <label for="composition">Composition</label>
-                        <textarea id="composition" name="composition" required>Each tablet contains: Azithromycin IP 500 mg</textarea>
+                        <textarea id="composition" name="composition" required>Each hard gelatin capsule contains: Amoxycillin Trihydrate IP Eq. to Amoxycillin 250 mg. Excipients q.s. Approved colour used in empty capsule shells.</textarea>
                     </div>
                 </div>
                 <div class="form-row">
@@ -188,17 +195,39 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="mfg_name">Name</label>
-                        <input type="text" id="mfg_name" name="mfg_name" value="PharmaCure Laboratories Pvt. Ltd." required>
+                        <input type="text" id="mfg_name" name="mfg_name" value="Innova Captab Limited" required>
                     </div>
                     <div class="form-group">
                         <label for="license_no">License No.</label>
-                        <input type="text" id="license_no" name="license_no" value="MH/15/2024/000123" required>
+                        <input type="text" id="license_no" name="license_no" value="MLF282024JK000013" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group full">
                         <label for="mfg_address">Address</label>
-                        <textarea id="mfg_address" name="mfg_address" required>Plot No. 45, MIDC, Mahad, Maharashtra</textarea>
+                        <textarea id="mfg_address" name="mfg_address" required>K. No. 11, SIDCO Ind. Complex, Phase-II, Ghatti Distt. Kathua 184143 (J&K)</textarea>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Marketer (optional) -->
+            <fieldset>
+                <legend>Marketer (if different from manufacturer)</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="marketer_name">Marketer Name</label>
+                        <input type="text" id="marketer_name" name="marketer_name" value="Univentis Medicare Ltd.">
+                        <span class="hint">Leave blank if same as manufacturer</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="marketer_license">Marketer License No.</label>
+                        <input type="text" id="marketer_license" name="marketer_license" value="">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full">
+                        <label for="marketer_address">Marketer Address</label>
+                        <textarea id="marketer_address" name="marketer_address">Plot No. L6, MIDC Road, Taloja Raigad, Navi Mumbai, Maharashtra 410208</textarea>
                     </div>
                 </div>
             </fieldset>
@@ -209,11 +238,16 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="pack_size">Pack Size</label>
-                        <input type="text" id="pack_size" name="pack_size" value="1 x 10">
+                        <input type="text" id="pack_size" name="pack_size" value="10x3x10">
+                        <span class="hint">e.g. 1x10, 10x3x10</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="blisters_per_carton">Blisters per Carton</label>
+                        <input type="number" id="blisters_per_carton" name="blisters_per_carton" value="3" min="1" max="20" required>
                     </div>
                     <div class="form-group">
                         <label for="mrp">MRP</label>
-                        <input type="text" id="mrp" name="mrp" value="125.50">
+                        <input type="text" id="mrp" name="mrp" value="">
                         <span class="hint">Rs. will be prefixed automatically</span>
                     </div>
                 </div>
@@ -225,15 +259,17 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="blister_length">Length</label>
-                        <input type="number" id="blister_length" name="blister_length" value="120" step="any" required>
+                        <input type="number" id="blister_length" name="blister_length" value="189" step="any" required>
+                        <span class="hint">From blister tooling drawing</span>
                     </div>
                     <div class="form-group">
                         <label for="blister_width">Width</label>
-                        <input type="number" id="blister_width" name="blister_width" value="50" step="any" required>
+                        <input type="number" id="blister_width" name="blister_width" value="53" step="any" required>
                     </div>
                     <div class="form-group">
-                        <label for="blister_height">Height</label>
-                        <input type="number" id="blister_height" name="blister_height" value="8" step="any" required>
+                        <label for="blister_height">Height (DBWB)</label>
+                        <input type="number" id="blister_height" name="blister_height" value="8.4" step="any" required>
+                        <span class="hint">Depth below web (cavity height)</span>
                     </div>
                 </div>
             </fieldset>

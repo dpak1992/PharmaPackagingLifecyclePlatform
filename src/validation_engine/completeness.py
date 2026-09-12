@@ -171,9 +171,9 @@ def check_completeness(
         "COMP-013", "Storage conditions", Severity.MAJOR,
     ))
 
-    # 14. Keep out of reach of children
+    # 14. Keep out of reach of children (or "Keep medicine out of reach of children")
     results.append(_check_text_contains(
-        artwork, "Keep out of reach of children",
+        artwork, "out of reach of children",
         "COMP-014", "Children warning", Severity.MAJOR,
     ))
 

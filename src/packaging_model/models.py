@@ -37,11 +37,13 @@ class Manufacturer(BaseModel):
 class Product(BaseModel):
     id: str
     brand_name: str
+    brand_name_hindi: Optional[str] = None  # e.g. "वेन्टीमॉक्स-250"
     generic_name: str
     strength: Strength
     dosage_form: DosageForm
     composition: str  # e.g. "Each tablet contains Azithromycin IP 500 mg"
     manufacturer: Manufacturer
+    marketer: Optional[Manufacturer] = None  # if marketed by a different company
     schedule_warning: str = (
         "SCHEDULE H DRUG - Warning: To be sold by retail on the "
         "prescription of a Registered Medical Practitioner only."
@@ -71,6 +73,7 @@ class CartonSpec(BaseModel):
     board: BoardSpec = Field(default_factory=BoardSpec)
     clearance: float = 2.0  # mm per side
     leaflet_allowance: float = 5.0  # mm added to depth for folded leaflet
+    blisters_per_carton: int = 1  # number of blister strips stacked in the carton
 
     # Internal dimensions (calculated from blister + clearances)
     internal_length: float = 0.0
@@ -81,7 +84,9 @@ class CartonSpec(BaseModel):
         self.internal_length = blister.length + 2 * self.clearance
         self.internal_width = blister.width + 2 * self.clearance
         self.internal_depth = (
-            blister.height + self.leaflet_allowance + self.clearance
+            blister.height * self.blisters_per_carton
+            + self.leaflet_allowance
+            + self.clearance
         )
 
 
